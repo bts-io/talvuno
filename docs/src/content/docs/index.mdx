@@ -1,0 +1,37 @@
+---
+title: Talvuno
+description: Self-hosted softphone and two-way SMS for your Twilio numbers, on Cloudflare Workers.
+template: splash
+hero:
+  tagline: Call and text from the browser on your own Twilio numbers, running on your own Cloudflare account.
+  image:
+    file: ../../assets/mascot.webp
+  actions:
+    - text: Read the introduction
+      link: introduction/
+      icon: right-arrow
+      variant: primary
+    - text: Get started
+      link: getting-started/
+      variant: secondary
+    - text: Source on GitHub
+      link: https://github.com/bts-io/talvuno
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+	<Card title="Calls" icon="phone">
+		Make and take calls in the browser with the official Twilio Voice SDK. Audio goes straight between your browser and Twilio.
+	</Card>
+	<Card title="Messages" icon="comment">
+		Threaded two-way SMS, with several numbers and a choice of which one you send from.
+	</Card>
+	<Card title="Self-hosted" icon="seti:lock">
+		One owner account per deployment, on your own Cloudflare account. The code is MIT licensed.
+	</Card>
+	<Card title="Limits you set" icon="approve-check">
+		Nothing can be sent until you choose which countries are allowed. Hourly limits cap calls and texts.
+	</Card>
+</CardGrid>

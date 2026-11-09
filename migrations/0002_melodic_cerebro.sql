@@ -1,0 +1,1 @@
+ALTER TABLE `phone_numbers` ADD `released_reason` text;

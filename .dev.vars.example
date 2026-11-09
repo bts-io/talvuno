@@ -1,0 +1,39 @@
+# Copy to .dev.vars for `bun run dev` (git-ignored). In production set each one with `wrangler secret put NAME`.
+# PUBLIC_URL and OIDC_BUTTON_LABEL are plain vars in wrangler.jsonc; .dev.vars overrides them locally.
+
+# Signs session cookies. Any long random string, for example: openssl rand -base64 32
+BETTER_AUTH_SECRET=
+
+# Guards first-run setup: POST /api/setup must carry it, so only whoever deployed this can claim the owner
+# account. Any long random string, for example: openssl rand -hex 24
+SETUP_TOKEN=
+
+# Twilio account and a restricted API key (Console > Account > API keys). The key signs Voice access tokens
+# and calls the REST API, so the main auth token never has to leave the webhook check.
+TWILIO_ACCOUNT_SID=
+TWILIO_API_KEY_SID=
+TWILIO_API_KEY_SECRET=
+
+# The account's auth token. Used only to verify X-Twilio-Signature on incoming webhooks.
+TWILIO_AUTH_TOKEN=
+
+# The TwiML App whose Voice URL points at this deployment (outgoing browser calls).
+TWILIO_TWIML_APP_SID=
+
+# Tests and local mocks only: replaces https://api.twilio.com for the REST client. Leave unset in production.
+# TWILIO_API_BASE=
+
+# Web Push (missed-call and new-message notices). Generate once: bun run vapid:generate
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:you@example.com
+
+# Optional single sign-on (OpenID Connect). Enabled only when the first three are all set. See README, "Single sign-on".
+# OIDC_DISCOVERY_URL=https://auth.example.com/application/o/talvuno/.well-known/openid-configuration
+# OIDC_CLIENT_ID=
+# OIDC_CLIENT_SECRET=
+# OIDC_BUTTON_LABEL=Sign in with SSO
+
+# The public origin Twilio calls back and the browser uses, without a trailing slash.
+# wrangler.jsonc carries the production URL, so local dev sets its own here (.dev.vars overrides vars).
+PUBLIC_URL=http://localhost:5173

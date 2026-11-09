@@ -1,0 +1,60 @@
+/* Talvuno brand: navy #01092a, blue #0288fd, green #0edd80.
+   Dark theme text and links are at least 7:1 on the navy; light theme links (#1153e2) are 6.2:1 on white. */
+
+:root {
+  --sl-color-accent-low: #0e3165;
+  --sl-color-accent: #0288fd;
+  --sl-color-accent-high: #acd1fa;
+  --sl-color-white: #fefefe;
+  --sl-color-gray-1: #d2e9f8;
+  --sl-color-gray-2: #b5c6e0;
+  --sl-color-gray-3: #8aa0c4;
+  --sl-color-gray-4: #33436b;
+  --sl-color-gray-5: #172556;
+  --sl-color-gray-6: #0a1440;
+  --sl-color-black: #01092a;
+  --sl-color-bg: #01092a;
+  --sl-color-bg-nav: #050f38;
+  --sl-color-bg-sidebar: #030c30;
+  --sl-color-hairline-light: rgba(2, 136, 253, 0.16);
+  --sl-color-hairline: rgba(2, 136, 253, 0.28);
+  --sl-color-green: #0edd80;
+}
+
+[data-theme="light"] {
+  --sl-color-accent-low: #d2e9f8;
+  --sl-color-accent: #1153e2;
+  --sl-color-accent-high: #0e3165;
+  --sl-color-white: #01092a;
+  --sl-color-gray-1: #0e3165;
+  --sl-color-gray-2: #243a66;
+  --sl-color-gray-3: #4d6286;
+  --sl-color-gray-4: #a9bcd6;
+  --sl-color-gray-5: #d2e9f8;
+  --sl-color-gray-6: #f1f5fb;
+  --sl-color-black: #ffffff;
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #f1f5fb;
+  --sl-color-bg-sidebar: #f1f5fb;
+  --sl-color-hairline-light: rgba(17, 83, 226, 0.12);
+  --sl-color-hairline: rgba(17, 83, 226, 0.22);
+  --sl-color-green: #0a7a46;
+}
+
+/* Callouts and cards pick up the blue and green accents */
+.card {
+  border-color: rgba(2, 136, 253, 0.22);
+}
+
+.starlight-aside--tip {
+  border-color: var(--sl-color-green);
+}
+
+/* Mermaid diagrams: centred, kept narrow */
+pre.mermaid,
+.mermaid {
+  display: flex;
+  justify-content: center;
+  max-width: 560px;
+  margin-inline: auto;
+}

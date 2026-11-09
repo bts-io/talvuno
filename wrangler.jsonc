@@ -1,0 +1,53 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "talvuno",
+  // No account_id here: set CLOUDFLARE_ACCOUNT_ID in the environment, or add your own "account_id".
+  "main": "./src/server.ts",
+  // Pinned to the workerd bundled with @cloudflare/vitest-pool-workers, or the integration tests refuse to start.
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  // Catch-up and retention jobs (src/worker/cron.ts).
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "observability": { "enabled": true, "logs": { "invocation_logs": true } },
+  "upload_source_maps": true,
+
+  // Client bundle and public files come from Workers Static Assets; pages are server-rendered and /api/* is Hono.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/*",
+      "!/assets/*",
+      "!/icons/*",
+      "!/brand/*",
+      "!/favicon.ico",
+      "!/apple-touch-icon.png",
+      "!/manifest.webmanifest",
+      "!/sw.js",
+      "!/offline.html"
+    ]
+  },
+
+  "vars": {
+    // The public origin Twilio calls back and Better Auth trusts. Set yours. Local dev overrides it in .dev.vars.
+    "PUBLIC_URL": "https://talvuno.example.com",
+    "OIDC_BUTTON_LABEL": "Sign in with SSO"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "talvuno-db",
+      // Set yours (`wrangler d1 create` prints it).
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./migrations"
+    }
+  ],
+
+  // One OwnerHub per owner (idFromName(ownerId)): live WebSocket fan-out plus atomic SMS and call counters.
+  "durable_objects": {
+    "bindings": [{ "name": "OWNER_HUB", "class_name": "OwnerHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OwnerHub"] }]
+}

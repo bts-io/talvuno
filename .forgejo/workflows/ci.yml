@@ -1,0 +1,86 @@
+# Lint, typecheck, test and build on every push to main and every pull request. The job container is
+# node:22-bookworm: checkout is a JavaScript action and needs node inside the container, and workerd
+# (integration and SSR tests) needs glibc. Bun is installed on top.
+# On push to main the deploy job runs after the checks: migrate D1, build, wrangler deploy, smoke check.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: docker
+    container:
+      image: node:22-bookworm
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+      - uses: https://github.com/oven-sh/setup-bun@v2
+        with:
+          # Same Bun that wrote bun.lock, so --frozen-lockfile agrees with it.
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Lint
+        run: bunx biome ci .
+      - name: Audit production dependencies
+        # Dev tooling carries advisories we cannot act on; what ships to the Worker must be clean at high.
+        run: bun audit --prod --audit-level=high
+      - name: Typecheck
+        run: bun run check
+      - name: Test (unit, integration in workerd, SSR against the built Worker)
+        run: bun run test
+
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: docker
+    container:
+      image: node:22-bookworm
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      WORKER_URL: ${{ vars.TALVUNO_PUBLIC_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+      - uses: https://github.com/oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Fill in deployment values (D1 id, public URL)
+        # wrangler.jsonc ships placeholders, so the file holds no account details.
+        env:
+          D1_ID: ${{ vars.TALVUNO_D1_DATABASE_ID }}
+          PUBLIC_URL: ${{ vars.TALVUNO_PUBLIC_URL }}
+        run: |
+          [ -n "$D1_ID" ] || { echo "repo variable TALVUNO_D1_DATABASE_ID is empty"; exit 1; }
+          [ -n "$PUBLIC_URL" ] || { echo "repo variable TALVUNO_PUBLIC_URL is empty"; exit 1; }
+          sed -i "s|00000000-0000-0000-0000-000000000000|$D1_ID|; s|https://talvuno.example.com|$PUBLIC_URL|" wrangler.jsonc
+          grep -q "$D1_ID" wrangler.jsonc && grep -q "$PUBLIC_URL" wrangler.jsonc
+      - name: Deploy (D1 migrations, build, wrangler deploy)
+        # The version tag and message label each deploy in the dashboard's Deployments list.
+        run: |
+          short="${GITHUB_SHA:0:12}"
+          subject=$(git log -1 --format=%s | cut -c1-60)
+          author=$(git log -1 --format=%an)
+          bun run deploy -- --tag "$short" --message "ci run ${{ github.run_number }} by $author: $subject"
+      - name: Smoke check (live /api/health)
+        run: |
+          for i in $(seq 1 24); do
+            health=$(curl -s -o /dev/null -w '%{http_code}' "$WORKER_URL/api/health" || true)
+            [ "$health" = 200 ] && { echo "live: /api/health -> $health"; exit 0; }
+            sleep 5
+          done
+          echo "live Worker is not healthy: /api/health -> $health"; exit 1

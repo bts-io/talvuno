@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Brand colours sampled from the Talvuno mark (the brand assets). */
+@theme {
+  --color-navy-950: #01092a;
+  --color-navy-900: #061440;
+  --color-navy-800: #0c1f57;
+  --color-navy-700: #18306f;
+  --color-brand-blue: #1e8bff;
+  --color-brand-blue-strong: #0a6fe0;
+  --color-brand-green: #2edb6e;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased dark:bg-navy-950 dark:text-slate-100;
+  /* Keyboard-safe layout on phones: the bottom bar stays above the home indicator. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-blue;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every utility class */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every utility class */
+    transition-duration: 0.01ms !important;
+  }
+}
