@@ -3,10 +3,9 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import mermaid from "astro-mermaid";
 
-// Published to GitHub Pages at https://bts-io.github.io/talvuno/
+// Served at the root of https://docs.talvuno.h1n054ur.dev as a Cloudflare Worker with static assets.
 export default defineConfig({
-	site: "https://bts-io.github.io",
-	base: "/talvuno",
+	site: "https://docs.talvuno.h1n054ur.dev",
 	markdown: {
 		smartypants: false,
 	},
@@ -24,11 +23,11 @@ export default defineConfig({
 				replacesTitle: true,
 			},
 			head: [
-				{ tag: "meta", attrs: { property: "og:image", content: "https://bts-io.github.io/talvuno/og-image.png" } },
+				{ tag: "meta", attrs: { property: "og:image", content: "https://docs.talvuno.h1n054ur.dev/og-image.png" } },
 				{ tag: "meta", attrs: { property: "og:image:width", content: "1200" } },
 				{ tag: "meta", attrs: { property: "og:image:height", content: "630" } },
 				{ tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
-				{ tag: "meta", attrs: { name: "twitter:image", content: "https://bts-io.github.io/talvuno/og-image.png" } },
+				{ tag: "meta", attrs: { name: "twitter:image", content: "https://docs.talvuno.h1n054ur.dev/og-image.png" } },
 			],
 			social: [{ icon: "github", label: "GitHub", href: "https://github.com/bts-io/talvuno" }],
 			customCss: ["./src/styles/custom.css"],

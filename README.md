@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://bts-io.github.io/talvuno/">Documentation</a> ·
-  <a href="https://bts-io.github.io/talvuno/getting-started/">Getting started</a> ·
+  <a href="https://docs.talvuno.h1n054ur.dev/">Documentation</a> ·
+  <a href="https://docs.talvuno.h1n054ur.dev/getting-started/">Getting started</a> ·
   <a href="LICENSE">MIT licence</a>
 </p>
 
@@ -139,7 +139,7 @@ bunx wrangler d1 create talvuno-db
 
 1. Put the database id that `d1 create` prints into `d1_databases[0].database_id` in `wrangler.jsonc`.
 2. Set `PUBLIC_URL` in `wrangler.jsonc` to the exact URL the Worker will answer on, and export `CLOUDFLARE_ACCOUNT_ID` with your own account id.
-3. Set the secrets with `bunx wrangler secret put NAME`. The [getting started guide](https://bts-io.github.io/talvuno/getting-started/#6-set-the-secrets) lists them, and the [Twilio setup](https://bts-io.github.io/talvuno/twilio-setup/) page says where each Twilio value comes from.
+3. Set the secrets with `bunx wrangler secret put NAME`. The [getting started guide](https://docs.talvuno.h1n054ur.dev/getting-started/#6-set-the-secrets) lists them, and the [Twilio setup](https://docs.talvuno.h1n054ur.dev/twilio-setup/) page says where each Twilio value comes from.
 4. Deploy:
 
    ```sh
@@ -161,16 +161,16 @@ Twilio cannot reach `localhost`, so calls and texts need a deploy, or a tunnel t
 
 ## Documentation
 
-- [Introduction](https://bts-io.github.io/talvuno/introduction/)
-- [Getting started](https://bts-io.github.io/talvuno/getting-started/)
-- [Twilio setup](https://bts-io.github.io/talvuno/twilio-setup/)
-- [Single sign-on](https://bts-io.github.io/talvuno/single-sign-on/)
-- [Using the app](https://bts-io.github.io/talvuno/using/)
-- [Notifications and installing](https://bts-io.github.io/talvuno/notifications/)
-- [Security](https://bts-io.github.io/talvuno/security/)
-- [Architecture](https://bts-io.github.io/talvuno/architecture/)
-- [Development](https://bts-io.github.io/talvuno/development/)
-- [FAQ and limitations](https://bts-io.github.io/talvuno/faq/)
+- [Introduction](https://docs.talvuno.h1n054ur.dev/introduction/)
+- [Getting started](https://docs.talvuno.h1n054ur.dev/getting-started/)
+- [Twilio setup](https://docs.talvuno.h1n054ur.dev/twilio-setup/)
+- [Single sign-on](https://docs.talvuno.h1n054ur.dev/single-sign-on/)
+- [Using the app](https://docs.talvuno.h1n054ur.dev/using/)
+- [Notifications and installing](https://docs.talvuno.h1n054ur.dev/notifications/)
+- [Security](https://docs.talvuno.h1n054ur.dev/security/)
+- [Architecture](https://docs.talvuno.h1n054ur.dev/architecture/)
+- [Development](https://docs.talvuno.h1n054ur.dev/development/)
+- [FAQ and limitations](https://docs.talvuno.h1n054ur.dev/faq/)
 
 ## Contributing
 

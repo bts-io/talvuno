@@ -16,5 +16,8 @@
     "astro-mermaid": "^2.2.0",
     "mermaid": "^12.3.0",
     "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "wrangler": "4.65.0"
   }
 }

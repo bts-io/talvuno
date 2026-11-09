@@ -1,0 +1,11 @@
+{
+  "name": "talvuno-docs",
+  "compatibility_date": "2026-02-09",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "docs.talvuno.h1n054ur.dev", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./dist"
+  }
+}
