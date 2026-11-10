@@ -155,15 +155,36 @@ describe("decline with text, server side", () => {
 });
 
 describe("missed-call text", () => {
-  async function missedCall(ownerId: string, numberId: string, party: string) {
+  async function missedCall(
+    ownerId: string,
+    numberId: string,
+    party: string,
+    extra: { outcome?: string; push?: boolean } = {},
+  ) {
     const sid = `CA${crypto.randomUUID().replace(/-/g, "")}`;
     await env.DB.prepare(
-      "INSERT INTO calls (id, owner_id, twilio_call_sid, direction, number_id, party, status, started_at, created_at, updated_at) VALUES (?, ?, ?, 'inbound', ?, ?, 'ringing', ?, ?, ?)",
+      "INSERT INTO calls (id, owner_id, twilio_call_sid, direction, number_id, party, status, outcome, started_at, created_at, updated_at) VALUES (?, ?, ?, 'inbound', ?, ?, 'ringing', ?, ?, ?, ?)",
     )
-      .bind(crypto.randomUUID(), ownerId, sid, numberId, party, Date.now(), Date.now(), Date.now())
+      .bind(
+        crypto.randomUUID(),
+        ownerId,
+        sid,
+        numberId,
+        party,
+        extra.outcome ?? null,
+        Date.now(),
+        Date.now(),
+        Date.now(),
+      )
       .run();
     // The parent leg ending unanswered is what makes an inbound call missed.
-    await applyCallEvent(env, createDb(env.DB), sid, { leg: "parent", status: "no-answer", at: new Date() });
+    await applyCallEvent(
+      env,
+      createDb(env.DB),
+      sid,
+      { leg: "parent", status: "no-answer", at: new Date() },
+      extra.push === undefined ? {} : { push: extra.push },
+    );
   }
 
   const enable = (s: Awaited<ReturnType<typeof createOwner>>, numberId: string, text = "Sorry, missed you") =>
@@ -216,21 +237,40 @@ describe("missed-call text", () => {
     expect(twilioCalls).toHaveLength(0);
   });
 
-  it("skips blocked numbers when a block list exists", async () => {
+  it("skips numbers on the block list", async () => {
     const { s, numberId } = await ready();
     await enable(s, numberId);
-    await env.DB.exec("CREATE TABLE blocked_numbers (owner_id TEXT NOT NULL, e164 TEXT NOT NULL)");
-    try {
-      await env.DB.prepare("INSERT INTO blocked_numbers (owner_id, e164) VALUES (?, ?)")
-        .bind(s.userId, PEER)
-        .run();
-      await missedCall(s.userId, numberId, PEER);
-      expect(twilioCalls).toHaveLength(0);
-      await missedCall(s.userId, numberId, PEER2);
-      expect(twilioCalls).toHaveLength(1);
-    } finally {
-      await env.DB.exec("DROP TABLE blocked_numbers");
-    }
+    await env.DB.prepare("INSERT INTO blocked_numbers (id, owner_id, e164, created_at) VALUES (?, ?, ?, ?)")
+      .bind(crypto.randomUUID(), s.userId, PEER, Date.now())
+      .run();
+    await missedCall(s.userId, numberId, PEER);
+    expect(twilioCalls).toHaveLength(0);
+    await missedCall(s.userId, numberId, PEER2);
+    expect(twilioCalls).toHaveLength(1);
+  });
+
+  it("texts a caller who reached voicemail, once", async () => {
+    const { s, numberId } = await ready();
+    await enable(s, numberId);
+    await missedCall(s.userId, numberId, PEER, { outcome: "voicemail" });
+    expect(twilioCalls).toHaveLength(1);
+    await missedCall(s.userId, numberId, PEER, { outcome: "voicemail" });
+    expect(twilioCalls).toHaveLength(1);
+  });
+
+  it("does not text a declined or blocked call", async () => {
+    const { s, numberId } = await ready();
+    await enable(s, numberId);
+    await missedCall(s.userId, numberId, PEER, { outcome: "declined" });
+    await missedCall(s.userId, numberId, PEER2, { outcome: "blocked" });
+    expect(twilioCalls).toHaveLength(0);
+  });
+
+  it("does not text when the reconcile cron closes a stuck call", async () => {
+    const { s, numberId } = await ready();
+    await enable(s, numberId);
+    await missedCall(s.userId, numberId, PEER, { push: false });
+    expect(twilioCalls).toHaveLength(0);
   });
 
   it("goes through the contact guards and lets a refused caller try again", async () => {

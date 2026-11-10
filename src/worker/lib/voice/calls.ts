@@ -28,6 +28,7 @@ import { onMissedCall } from "../missed-call";
 import {
   type CallEvent,
   type CallRow,
+  endedUnanswered,
   isMissed,
   isWithheld,
   missedCallPush,
@@ -77,7 +78,9 @@ export async function applyCallEvent(
   let push: LivePush | undefined;
   if (missedNow && opts.push !== false)
     push = missedCallPush(updated, updated.contactId ? await contactName(db, updated.contactId) : null);
-  if (missedNow) await onMissedCall(env, updated.ownerId, updated, opts.ctx);
+  // The reconcile cron closes stuck rows hours later with `push: false`: it must not text a caller then.
+  if (opts.push !== false && endedUnanswered(updated) && !endedUnanswered(row))
+    await onMissedCall(env, updated.ownerId, updated, opts.ctx);
   await notifyOwner(
     env,
     updated.ownerId,

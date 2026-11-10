@@ -9,7 +9,7 @@ import {
   type LivePush,
   nextCallStatus,
 } from "../../../contracts";
-import { isMissedCall } from "../../../contracts/contacts";
+import { isMissedCall, MISSED_STATUSES } from "../../../contracts/contacts";
 import { incomingCallTag } from "../../../contracts/routing";
 import { formatPhone, isE164 } from "../../../lib/phone";
 import type { calls } from "../../db/schema/app";
@@ -130,6 +130,18 @@ export function outcomeOnEnd(row: CallRow, patch: Partial<CallRow>): CallRow["ou
 /** A missed call: inbound, ended, never answered, not sent to voicemail, declined or blocked. */
 export const isMissed = (row: Pick<CallRow, "direction" | "status" | "answeredAt" | "outcome">) =>
   isMissedCall(row);
+
+/**
+ * An inbound call that ended without anyone answering, whether or not the caller then left a voicemail. Only a
+ * decline (the caller already got the decline text) or a block is left out. The missed-call text goes by this
+ * rule, the missed list and push by `isMissed`.
+ */
+export const endedUnanswered = (row: Pick<CallRow, "direction" | "status" | "answeredAt" | "outcome">) =>
+  row.direction === "inbound" &&
+  (MISSED_STATUSES as readonly string[]).includes(row.status) &&
+  !row.answeredAt &&
+  row.outcome !== "declined" &&
+  row.outcome !== "blocked";
 
 /** How a call party reads in a notification. */
 export const partyLabel = (party: string, contactName?: string | null) =>
