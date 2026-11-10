@@ -36,6 +36,10 @@ export interface TwilioRest {
   get<T = unknown>(path: string, query?: Query): Promise<T>;
   /** `signal` aborts the request, for example `AbortSignal.timeout(ms)`. */
   post<T = unknown>(path: string, form?: Form, options?: { signal?: AbortSignal }): Promise<T>;
+  /** DELETE on an account path. Twilio answers 204. */
+  delete(path: string, options?: { signal?: AbortSignal }): Promise<void>;
+  /** GET that returns the raw answer (recording audio, for example). Throws TwilioApiError on non-2xx. */
+  media(path: string, options?: { signal?: AbortSignal }): Promise<Response>;
   /** The account SID requests run under. */
   accountSid: string;
 }
@@ -81,12 +85,17 @@ export function twilioRest(env: Env): TwilioRest {
   const authorization = `Basic ${btoa(`${keySid}:${keySecret}`)}`;
   const urlFor = (path: string) => `${root}${path.startsWith("/") ? path : `/${path}`}`;
 
-  async function send<T>(url: string, init: RequestInit): Promise<T> {
+  async function raw(url: string, init: RequestInit, accept: string): Promise<Response> {
     const headers = new Headers(init.headers);
     headers.set("authorization", authorization);
-    headers.set("accept", "application/json");
+    headers.set("accept", accept);
     const res = await fetch(url, { ...init, headers });
     if (!res.ok) throw await toError(res);
+    return res;
+  }
+
+  async function send<T>(url: string, init: RequestInit): Promise<T> {
+    const res = await raw(url, init, "application/json");
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
@@ -106,6 +115,13 @@ export function twilioRest(env: Env): TwilioRest {
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: encodeForm(form),
       });
+    },
+    async delete(path: string, options: { signal?: AbortSignal } = {}) {
+      const res = await raw(urlFor(path), { method: "DELETE", signal: options.signal }, "application/json");
+      await res.body?.cancel();
+    },
+    media(path: string, options: { signal?: AbortSignal } = {}) {
+      return raw(urlFor(path), { method: "GET", signal: options.signal }, "*/*");
     },
   };
 }

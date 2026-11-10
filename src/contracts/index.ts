@@ -240,6 +240,13 @@ export const liveEventSchema = z.discriminatedUnion("type", [
     push: livePushSchema.optional(),
   }),
   z.object({ type: z.literal("conversation"), conversationId: idSchema, push: livePushSchema.optional() }),
+  /** A voicemail was stored, transcribed, listened to or deleted. */
+  z.object({
+    type: z.literal("voicemail"),
+    voicemailId: idSchema,
+    callId: idSchema.optional(),
+    push: livePushSchema.optional(),
+  }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;
 

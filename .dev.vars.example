@@ -37,3 +37,7 @@ VAPID_SUBJECT=mailto:you@example.com
 # The public origin Twilio calls back and the browser uses, without a trailing slash.
 # wrangler.jsonc carries the production URL, so local dev sets its own here (.dev.vars overrides vars).
 PUBLIC_URL=http://localhost:5173
+
+# The AI Gateway that voicemail transcription (Workers AI Whisper) runs through. wrangler.jsonc sets "default",
+# the gateway every Cloudflare account has. Set it to your own gateway id to use another one.
+# AI_GATEWAY_ID=default
