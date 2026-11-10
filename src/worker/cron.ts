@@ -8,6 +8,7 @@ import { createDb } from "./db";
 import { webhookEvents } from "./db/schema";
 import { sendDigests } from "./lib/digest";
 import { refreshStuckMessages } from "./lib/sms";
+import { sweepLeftoverQueues } from "./lib/voice/queues";
 import { reconcileStuckCalls } from "./lib/voice/reconcile";
 import { pruneVoicemails, repairVoicemails } from "./lib/voicemail";
 
@@ -28,6 +29,7 @@ export const cronJobs: CronJob[] = [
   sendDigests,
   repairVoicemails,
   pruneVoicemails,
+  sweepLeftoverQueues,
 ];
 
 /** Runs every job, each on its own, and waits for all of them. */

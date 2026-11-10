@@ -22,7 +22,8 @@ import {
   useState,
 } from "react";
 import type { IncomingCallInfo } from "../../contracts/routing";
-import { isTrailingTransportError, probeIce, superviseCall } from "../lib/call-health";
+import { useDnd } from "../hooks/use-routing";
+import { isTrailingTransportError, superviseCall, webrtcBlocked } from "../lib/call-health";
 import { connectOptions, createIceServerStore } from "../lib/ice-servers";
 import {
   answerParams,
@@ -32,6 +33,7 @@ import {
   fetchIncoming,
   onIncoming,
   ringingCall,
+  showIncomingSheet,
   startRingtone,
 } from "../lib/incoming";
 import { onCallFailure, queryKeys } from "../lib/live";
@@ -313,10 +315,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       // The same STUN and TURN servers the call will use. A browser that gathers no ICE candidate even with
       // TURN can never carry audio: say so instead of ringing the far phone.
       const iceServers = await iceStore.get();
-      if (
-        typeof RTCPeerConnection !== "undefined" &&
-        (await probeIce((config) => new RTCPeerConnection(config), iceServers)) === "blocked"
-      ) {
+      if (await webrtcBlocked(iceServers)) {
         setError("webrtcBlocked");
         return;
       }
@@ -375,7 +374,9 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   );
 
   // The ringtone plays while the sheet shows. Waiting calls do not ring the device, so the SDK's sound never plays.
-  const ringtoneFor = incoming && !active ? incoming.callId : null;
+  const { dnd } = useDnd();
+  const sheetShows = showIncomingSheet({ incoming, active, dnd });
+  const ringtoneFor = sheetShows && incoming ? incoming.callId : null;
   useEffect(() => (ringtoneFor ? startRingtone() : undefined), [ringtoneFor]);
 
   const answerOnce = useCallback(
@@ -393,7 +394,12 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
         setError(mic === "denied" ? "micDenied" : "micUnavailable");
         return;
       }
+      // Before claiming: a browser that cannot carry audio must leave the call for another device to answer.
       const iceServers = await iceStore.get();
+      if (await webrtcBlocked(iceServers)) {
+        setError("webrtcBlocked");
+        return;
+      }
       const known = waiting.find((c) => c.callId === callId);
       const party = info?.party ?? known?.party ?? "";
       const name = info?.name ?? known?.contactName ?? null;
@@ -470,7 +476,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   return (
     <PhoneContext.Provider value={value}>
       {children}
-      {incoming && !active ? <IncomingCallSheet /> : null}
+      {sheetShows ? <IncomingCallSheet /> : null}
       {active ? <ActiveCallScreen /> : null}
     </PhoneContext.Provider>
   );

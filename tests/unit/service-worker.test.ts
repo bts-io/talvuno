@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it, vi } from "vitest";
+import { openUrlFromMessage } from "../../src/client/lib/open-url";
 
 const source = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
 const ORIGIN = "https://talvuno.test";
@@ -9,7 +10,10 @@ type Handler = (event: any) => void;
 
 /** Runs public/sw.js against a fake worker scope and returns the scope, its listeners and the fakes. */
 function loadWorker(
-  opts: { windows?: { url: string; focus?: any; navigate?: any }[]; cached?: Record<string, Response> } = {},
+  opts: {
+    windows?: { url: string; focus?: any; navigate?: any; postMessage?: any }[];
+    cached?: Record<string, Response>;
+  } = {},
 ) {
   const listeners: Record<string, Handler> = {};
   const shown: { title: string; options: any }[] = [];
@@ -152,15 +156,17 @@ describe("push handler", () => {
 describe("notificationclick", () => {
   const click = (url: unknown) => ({ notification: { close: vi.fn(), data: { url } } });
 
-  it("focuses an open Talvuno window and moves it to the target", async () => {
+  it("focuses an open Talvuno window and asks it to route, without reloading it", async () => {
     const focus = vi.fn(async () => {});
     const navigate = vi.fn(async () => {});
-    const sw = loadWorker({ windows: [{ url: `${ORIGIN}/keypad`, focus, navigate }] });
+    const postMessage = vi.fn();
+    const sw = loadWorker({ windows: [{ url: `${ORIGIN}/keypad`, focus, navigate, postMessage }] });
     const event = click("/messages/1");
     await sw.fire("notificationclick", event);
     expect(event.notification.close).toHaveBeenCalled();
     expect(focus).toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(`${ORIGIN}/messages/1`);
+    expect(postMessage).toHaveBeenCalledWith({ type: "open-url", url: `${ORIGIN}/messages/1` });
+    expect(navigate).not.toHaveBeenCalled();
     expect(sw.opened).toEqual([]);
   });
 
@@ -261,5 +267,19 @@ describe("lifecycle", () => {
     );
     await w.fire("pushsubscriptionchange", {});
     expect(w.subscribed).toHaveLength(0);
+  });
+});
+
+describe("openUrlFromMessage", () => {
+  it("turns an open-url message into an in-app path", () => {
+    expect(openUrlFromMessage({ type: "open-url", url: `${ORIGIN}/answer/c1?x=1` }, ORIGIN)).toBe(
+      "/answer/c1?x=1",
+    );
+  });
+
+  it("ignores other messages and other sites", () => {
+    expect(openUrlFromMessage({ type: "other", url: `${ORIGIN}/a` }, ORIGIN)).toBeNull();
+    expect(openUrlFromMessage({ type: "open-url", url: "https://evil.example/a" }, ORIGIN)).toBeNull();
+    expect(openUrlFromMessage(null, ORIGIN)).toBeNull();
   });
 });

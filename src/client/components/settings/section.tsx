@@ -14,8 +14,9 @@ export function Section({
 }) {
   return (
     <section
+      id={id}
       aria-labelledby={`${id}-title`}
-      className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-navy-800 dark:bg-navy-900"
+      className="flex scroll-mt-4 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-navy-800 dark:bg-navy-900"
     >
       <div>
         <h2 id={`${id}-title`} className="text-lg font-semibold">

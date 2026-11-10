@@ -165,13 +165,10 @@ export const incomingCallPush = (
   ttl: ringSeconds,
 });
 
-/** The web push for a missed call. Tagged by call, so a repeat replaces the notice instead of adding one. */
-export const missedCallPush = (
-  row: Pick<CallRow, "party" | "twilioCallSid">,
-  contactName: string | null,
-): LivePush => ({
+/** The web push for a missed call. It shares the ring notice's tag, so it replaces a ring still on screen. */
+export const missedCallPush = (row: Pick<CallRow, "id" | "party">, contactName: string | null): LivePush => ({
   title: "Missed call",
   body: partyLabel(row.party, contactName),
   url: "/recents",
-  tag: `missed-${row.twilioCallSid}`,
+  tag: incomingCallTag(row.id),
 });

@@ -26,6 +26,10 @@ export function applyIncomingEvent(list: IncomingCallInfo[], event: IncomingEven
 /** The call the incoming sheet shows: the newest still waiting. */
 export const ringingCall = (list: IncomingCallInfo[]) => list[0] ?? null;
 
+/** The incoming sheet and ringtone show only for a waiting call, with no call active and do not disturb off. */
+export const showIncomingSheet = (input: { incoming: unknown; active: unknown; dnd: boolean }) =>
+  Boolean(input.incoming) && !input.active && !input.dnd;
+
 const listeners = new Set<(event: IncomingEvent) => void>();
 
 /** Calls `listener` for every live incoming event. Returns the unsubscribe. */

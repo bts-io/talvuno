@@ -355,10 +355,13 @@ twilioVoice.post("/queue-bridge", async (c) => {
   return twimlResponse(response());
 });
 
+/** Queue results that end the call. Every other result (leave, redirected, error, queue-full...) goes to voicemail. */
+const QUEUE_ENDS_CALL = new Set(["bridged", "bridging-in-process", "hangup"]);
+
 /**
- * The <Enqueue action>: the caller left the queue. Left on purpose (ring time up, or declined) means
- * voicemail. Anything else (bridged and done, hung up) ends the call. The queue is deleted either way, since
- * Twilio keeps queues until they are removed.
+ * The <Enqueue action>: the caller left the queue. Bridged, bridging or hung up ends the call. Every other
+ * result (ring time up, declined, redirected, a queue error or a full queue) means voicemail. The queue is
+ * deleted either way, since Twilio keeps queues until they are removed.
  */
 twilioVoice.post("/queue-done", async (c) => {
   const p = await form(c);
@@ -367,7 +370,7 @@ twilioVoice.post("/queue-done", async (c) => {
   const queueSid = str(p.QueueSid);
   if (queueSid && /^QU[0-9a-f]{32}$/i.test(queueSid)) c.executionCtx.waitUntil(deleteQueue(c.env, queueSid));
   if (row?.direction !== "inbound") return twimlResponse(response(el("Hangup")));
-  if (p.QueueResult === "leave") {
+  if (!QUEUE_ENDS_CALL.has(String(p.QueueResult))) {
     await setOutcome(db, row.id, row.declinedAt ? "declined" : "voicemail");
     await incomingEnded(c, row);
     const routing = await numberRouting(db, row.ownerId, row.numberId);

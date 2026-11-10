@@ -13,7 +13,7 @@
  */
 import { and, desc, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { RING_SECONDS_DEFAULT } from "../../../contracts/routing";
-import type { BusinessHours } from "../../../lib/business-hours";
+import { type BusinessHours, isOpenAt } from "../../../lib/business-hours";
 import en from "../../../shared/locales/en.json";
 import type { Db } from "../../db";
 import { schema } from "../../db";
@@ -52,6 +52,21 @@ export async function isDndOn(db: Db, ownerId: string): Promise<boolean> {
     .where(eq(schema.routingSettings.ownerId, ownerId))
     .get();
   return row?.dnd ?? false;
+}
+
+/**
+ * Whether a push for this number should stay quiet right now: do not disturb is on, or the number is outside
+ * its business hours. The same two conditions that send an inbound call straight to voicemail.
+ */
+export async function quietPushNow(
+  db: Db,
+  ownerId: string,
+  numberId: string | null,
+  at = new Date(),
+): Promise<boolean> {
+  if (await isDndOn(db, ownerId)) return true;
+  const { hours } = await numberRouting(db, ownerId, numberId);
+  return !isOpenAt(hours, at);
 }
 
 /** Whether the owner blocked this caller or sender. Compared exactly as stored (E.164 or sender ID). */

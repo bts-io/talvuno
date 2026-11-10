@@ -157,12 +157,27 @@
     "missedCall": "Missed",
     "callBack": "Call {{name}}",
     "saveContact": "Save contact",
+    "moreActions": "More actions for {{name}}",
     "withheld": "Withheld number",
     "unknownCaller": "Unknown caller",
     "justNow": "Just now",
     "voicemail": "Voicemail"
   },
   "settings": {
+    "jump": {
+      "label": "Jump to",
+      "notifications": "Notifications",
+      "numbers": "Numbers",
+      "hours": "Hours",
+      "voicemail": "Voicemail",
+      "blocked": "Blocked",
+      "quickReplies": "Quick replies",
+      "missedCallText": "Missed-call text",
+      "digest": "Digest",
+      "safety": "Safety",
+      "account": "Account",
+      "setupCheck": "Setup check"
+    },
     "loading": "Loading",
     "save": "Save",
     "cancel": "Cancel",
@@ -415,6 +430,10 @@
       "voicemail": "Voicemail",
       "declined": "Declined",
       "blocked": "Blocked"
+    },
+    "dndState": {
+      "on": "On",
+      "off": "Off"
     },
     "hours": {
       "title": "Business hours and do not disturb",

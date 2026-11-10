@@ -1,12 +1,15 @@
 import { PhoneIncoming, PhoneOutgoing, PhoneX, UserPlus } from "@phosphor-icons/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import type { CallEntry, CallFilter, CallList } from "../../contracts/contacts";
 import { formatPhone, isE164 } from "../../lib/phone";
 import { BlockButton } from "../components/block-button";
+import { RowMenu, type RowMenuItem, useLongPress } from "../components/row-menu";
 import { VoicemailList } from "../components/voicemail-list";
+import { useBlockToggle } from "../hooks/use-routing";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/live";
 import { callFailureKey } from "../lib/voice";
@@ -152,8 +155,35 @@ function CallRow({ call }: { call: CallEntry }) {
       ? t(`voice.errors.${callFailureKey(call.errorCode)}`, { code: call.errorCode })
       : null;
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { blocked, toggle } = useBlockToggle(dialable ? call.party : null);
+  const press = useLongPress(() => setMenuOpen(true));
+  const canSave = dialable && !call.contactName;
+  // The phone layout keeps the row to the caller and the details: the actions live in a menu.
+  const menuItems: RowMenuItem[] = [
+    ...(dialable
+      ? [
+          {
+            key: "block",
+            label: blocked ? t("routing.blocked.unblockNumber") : t("routing.blocked.blockNumber"),
+            onSelect: () => toggle.mutate(),
+            danger: !blocked,
+          },
+        ]
+      : []),
+    ...(canSave
+      ? [
+          {
+            key: "save",
+            label: t("recents.saveContact"),
+            onSelect: () => navigate({ href: `/contacts?add=${encodeURIComponent(call.party)}` }),
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <li className="flex items-center gap-1 pe-2">
+    <li className="flex items-center gap-1 pe-2" {...press}>
       {dialable ? (
         <button
           type="button"
@@ -198,17 +228,29 @@ function CallRow({ call }: { call: CallEntry }) {
           </span>
         </div>
       )}
-      {dialable ? <BlockButton address={call.party} /> : null}
-      {call.contactName || !dialable ? null : (
-        <button
-          type="button"
-          onClick={() => navigate({ href: `/contacts?add=${encodeURIComponent(call.party)}` })}
-          className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-sm text-brand-blue hover:bg-brand-blue/10"
-        >
-          <UserPlus aria-hidden className="size-4" />
-          {t("recents.saveContact")}
-        </button>
-      )}
+      <div className="hidden items-center gap-1 md:flex">
+        {dialable ? <BlockButton address={call.party} /> : null}
+        {canSave ? (
+          <button
+            type="button"
+            onClick={() => navigate({ href: `/contacts?add=${encodeURIComponent(call.party)}` })}
+            className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-sm text-brand-blue hover:bg-brand-blue/10"
+          >
+            <UserPlus aria-hidden className="size-4" />
+            {t("recents.saveContact")}
+          </button>
+        ) : null}
+      </div>
+      {menuItems.length ? (
+        <div className="md:hidden">
+          <RowMenu
+            label={t("recents.moreActions", { name })}
+            items={menuItems}
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }

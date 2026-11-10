@@ -38,3 +38,14 @@ export function useBlockToggle(address: string | null | undefined) {
   });
   return { blocked, toggle };
 }
+
+/** The do not disturb switch and its current state, shared by the shell and the incoming call sheet. */
+export function useDnd() {
+  const qc = useQueryClient();
+  const { data } = useQuery(routingQuery());
+  const toggle = useMutation({
+    mutationFn: saveDnd,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["routing"] }),
+  });
+  return { dnd: data?.dnd ?? false, ready: Boolean(data), toggle };
+}

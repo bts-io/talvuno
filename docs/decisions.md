@@ -95,7 +95,8 @@ time to live of the ring time, even when a tab is open, because an open tab on o
 phone in a pocket.
 
 The `waitUrl` decides when the caller leaves: after the per-number ring time (default 25 seconds, plus a short
-grace once a device has claimed the call), at once after a decline. Leaving the queue plays the voicemail
+grace once a device has claimed the call), and within a few seconds after a decline, because the next ringback
+poll sees the decline. Leaving the queue plays the voicemail
 greeting and records. Blocked callers are rejected before anything rings, and calls outside business hours or
 with do not disturb on go straight to voicemail with no ring and no push. `calls.outcome` records answered,
 missed, voicemail, declined or blocked, and only "missed" (or no outcome on older rows) counts as a missed call.

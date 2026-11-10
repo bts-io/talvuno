@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   hasTurn,
   ICE_PROBE_TIMEOUT_MS,
@@ -9,6 +9,7 @@ import {
   RECONNECT_GIVE_UP_MS,
   superviseCall,
   type Timers,
+  webrtcBlocked,
 } from "../../src/client/lib/call-health";
 import type { IceConfiguration, IceServer } from "../../src/client/lib/ice-servers";
 import en from "../../src/shared/locales/en.json";
@@ -251,5 +252,29 @@ describe("isTrailingTransportError", () => {
     expect(isTrailingTransportError(31401)).toBe(false);
     expect(isTrailingTransportError(20104)).toBe(false);
     expect(isTrailingTransportError(undefined)).toBe(false);
+  });
+});
+
+describe("webrtcBlocked", () => {
+  const stub = (pc: unknown) => {
+    class Fake {}
+    Object.assign(Fake.prototype, pc);
+    Object.defineProperty(Fake.prototype, "iceGatheringState", { get: () => (pc as any).iceGatheringState });
+    vi.stubGlobal("RTCPeerConnection", Fake);
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is true only when gathering finds nothing even with TURN", async () => {
+    stub(fakePc([]));
+    expect(await webrtcBlocked(TWILIO_SERVERS)).toBe(true);
+    stub(fakePc(["candidate:2 1 udp 1686052607 203.0.113.7 50000 typ srflx"]));
+    expect(await webrtcBlocked(TWILIO_SERVERS)).toBe(false);
+  });
+
+  it("lets the call go ahead without servers or without WebRTC", async () => {
+    stub(fakePc([]));
+    expect(await webrtcBlocked(null)).toBe(false);
+    vi.stubGlobal("RTCPeerConnection", undefined);
+    expect(await webrtcBlocked(TWILIO_SERVERS)).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isMissedCall } from "../../src/contracts/contacts";
+import { incomingCallTag } from "../../src/contracts/routing";
 import {
   type CallRow,
   isMissed,
@@ -158,14 +159,15 @@ describe("missed calls", () => {
   });
 
   it("push the contact name, else the number, else a withheld label", () => {
-    expect(missedCallPush({ party: "+14155552671", twilioCallSid: "CA9" }, "Ada")).toEqual({
+    expect(missedCallPush({ id: "c1", party: "+14155552671" }, "Ada")).toEqual({
       title: "Missed call",
       body: "Ada",
       url: "/recents",
-      tag: "missed-CA9",
+      tag: incomingCallTag("c1"),
     });
-    expect(missedCallPush({ party: "+14155552671", twilioCallSid: "CA9" }, null).body).toMatch(/415/);
-    expect(missedCallPush({ party: "anonymous", twilioCallSid: "CA9" }, null).body).toBe("Withheld number");
+    expect(missedCallPush({ id: "c1", party: "+14155552671" }, null).tag).toBe("call-c1");
+    expect(missedCallPush({ id: "c1", party: "+14155552671" }, null).body).toMatch(/415/);
+    expect(missedCallPush({ id: "c1", party: "anonymous" }, null).body).toBe("Withheld number");
   });
 });
 
