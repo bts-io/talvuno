@@ -6,7 +6,8 @@ import { useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConversationListItem, SearchResult } from "../../contracts/messages";
 import { formatPhone } from "../../lib/phone";
-import { ThreadRowMenu, useLongPress } from "../components/thread-actions";
+import { useLongPress } from "../components/row-menu";
+import { ThreadRowMenu } from "../components/thread-actions";
 import { conversationsQuery, displayAddress, searchQuery, smsNumbersQuery } from "../lib/messages";
 
 /**
@@ -164,7 +165,7 @@ function ThreadRow({ c, showNumber }: { c: ConversationListItem; showNumber: boo
   const { t, i18n } = useTranslation();
   const unread = c.unreadCount > 0 || c.markedUnread;
   const [menuOpen, setMenuOpen] = useState(false);
-  const press = useLongPress(() => setMenuOpen(true));
+  const press = useLongPress(() => setMenuOpen(true), { touchOnly: true });
   return (
     <li className="relative" {...press}>
       <Link
