@@ -88,7 +88,7 @@ export async function upsertConversation(db: Db, ownerId: string, numberId: stri
 
 /**
  * Moves the conversation's "last message" forward to this message (never back to an older one) and, for an
- * inbound message, counts it as unread.
+ * inbound message, counts it as unread and un-archives the thread.
  */
 export async function touchConversation(
   db: Db,
@@ -106,6 +106,8 @@ export async function touchConversation(
         message.direction === "inbound"
           ? sql`${conversations.unreadCount} + 1`
           : sql`${conversations.unreadCount}`,
+      // A new inbound message brings an archived thread back to the list.
+      ...(message.direction === "inbound" ? { archivedAt: null } : {}),
     })
     .where(eq(conversations.id, conversationId));
 }

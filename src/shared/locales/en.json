@@ -178,6 +178,20 @@
       "timezone": "Time zone",
       "invalid": "Choose a time and a time zone."
     },
+    "quickReplies": {
+      "title": "Quick replies",
+      "intro": "Short texts you can drop into a message with one tap, or send when you decline a call.",
+      "text": "Reply text",
+      "new": "New quick reply",
+      "add": "Add",
+      "edit": "Edit",
+      "remove": "Remove"
+    },
+    "missedCallText": {
+      "title": "Missed-call text",
+      "intro": "Text a caller after a call you missed, once per caller per day. Off until you turn it on for a number.",
+      "text": "Text to send"
+    },
     "numbers": {
       "title": "Numbers",
       "intro": "The Twilio numbers on your account. Sync reads them from Twilio.",
@@ -296,7 +310,23 @@
     "noNumbers": "Add a Twilio number in Settings before sending messages.",
     "sendFailed": "The message was not sent: {{message}}",
     "a2pNote": "Texting US recipients from a US number needs A2P 10DLC registration in Twilio. Without it, carriers may block your messages.",
-    "cannotReply": "This sender cannot receive replies."
+    "cannotReply": "This sender cannot receive replies.",
+    "quickReplies": "Quick replies",
+    "archivedTitle": "Archived",
+    "showArchived": "Show archived conversations",
+    "showInbox": "Back to conversations",
+    "emptyArchived": "No archived conversations. A new message brings a conversation back to the list.",
+    "pinned": "Pinned",
+    "markedUnread": "Marked unread",
+    "actions": {
+      "more": "More actions",
+      "pin": "Pin to top",
+      "unpin": "Unpin",
+      "archive": "Archive",
+      "unarchive": "Move back to list",
+      "markUnread": "Mark unread",
+      "markRead": "Mark read"
+    }
   },
   "voice": {
     "callerId": "Call from",
@@ -315,6 +345,7 @@
     "hangUp": "Hang up",
     "accept": "Accept",
     "decline": "Decline",
+    "declineWithText": "Decline with text",
     "activeCall": "Call in progress",
     "incomingLabel": "Incoming call",
     "outgoingLabel": "Calling",
