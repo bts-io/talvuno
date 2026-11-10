@@ -11,6 +11,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: "system",
   smsPerHour: 30,
   callsPerHour: 20,
+  digestEnabled: false,
+  digestTime: "08:00",
+  timezone: "UTC",
 };
 
 /** The owner's preferences, or the defaults when no row exists yet. */
@@ -28,6 +31,9 @@ export async function getPreferences(db: Db, ownerId: string): Promise<Preferenc
     theme: row.theme,
     smsPerHour: row.smsPerHour,
     callsPerHour: row.callsPerHour,
+    digestEnabled: row.digestEnabled,
+    digestTime: row.digestTime,
+    timezone: row.timezone,
   };
 }
 

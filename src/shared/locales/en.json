@@ -170,6 +170,14 @@
       "noCountries": "Choose which countries you may call and text. Until you do, nothing can be sent.",
       "cta": "Open settings"
     },
+    "digest": {
+      "title": "Morning digest",
+      "intro": "One notice a day with your missed calls, voicemails and unread texts. Nothing is sent on a day with nothing to report.",
+      "enable": "Send me a daily digest",
+      "time": "Time",
+      "timezone": "Time zone",
+      "invalid": "Choose a time and a time zone."
+    },
     "numbers": {
       "title": "Numbers",
       "intro": "The Twilio numbers on your account. Sync reads them from Twilio.",
