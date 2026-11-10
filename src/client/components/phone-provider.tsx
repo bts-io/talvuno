@@ -4,7 +4,7 @@
  *
  * Incoming calls never ring the device through Twilio. Every caller waits in a queue of its own (see
  * src/worker/lib/voice/routing.ts): open screens learn about it from a live `incoming` event, closed ones from
- * a push that opens /answer/<callId>. Answering places a call that names the waiting call; the Worker checks
+ * a push that opens /answer/<callId>. Answering places a call that names the waiting call, and the Worker checks
  * it and bridges the two. The first device to answer wins, the others stop ringing on the `ended` event.
  *
  * The SDK is only reached through loadVoiceSdk(), inside effects and handlers, never during SSR.

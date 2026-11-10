@@ -381,7 +381,7 @@ async function deleteQueue(env: Env, queueSid: string) {
   try {
     await twilioRest(env).delete(`/Queues/${queueSid}.json`);
   } catch (err) {
-    // A queue left behind costs nothing and holds no caller; it is only tidied away.
+    // A queue left behind costs nothing and holds no caller, so this only tidies up.
     console.warn("queue delete failed", { queueSid, error: String(err) });
   }
 }

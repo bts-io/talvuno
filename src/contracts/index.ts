@@ -183,7 +183,7 @@ export const callSchema = z.object({
   errorCode: z.number().int().positive().nullable(),
   errorMessage: z.string().nullable(),
   contactId: idSchema.nullable(),
-  /** How an inbound call ended (answered, missed, voicemail, declined, blocked); null while live or outbound. */
+  /** How an inbound call ended (answered, missed, voicemail, declined, blocked), null while live or outbound. */
   outcome: callOutcomeSchema.nullable(),
 });
 export type Call = z.infer<typeof callSchema>;

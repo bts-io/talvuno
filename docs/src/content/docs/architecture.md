@@ -50,6 +50,40 @@ flowchart TB
 
 A dropped socket loses nothing, because the browser refetches everything when it reconnects.
 
+## How an incoming call reaches the owner
+
+```mermaid
+flowchart TB
+  C["Caller dials a number"]
+  R{"Blocked, closed hours<br/>or do not disturb?"}
+  X["Rejected or voicemail<br/>no ring, no push"]
+  Q["Caller waits in its own<br/>queue with ringback"]
+  N["Live event to open tabs<br/>high-urgency push to devices"]
+  A["A device answers<br/>with AnswerCallId"]
+  K{"First claim of a call<br/>that is still waiting?"}
+  B["Bridged to the caller"]
+  V["Ring time up or declined:<br/>voicemail"]
+
+  C --> R
+  R -->|"yes"| X
+  R -->|"no"| Q
+  Q --> N
+  N --> A
+  A --> K
+  K -->|"yes"| B
+  K -->|"no"| E["Told it was answered elsewhere"]
+  Q --> V
+```
+
+1. Twilio posts to `/api/twilio/voice/inbound`. A blocked caller gets `<Reject>`. Outside the number's hours, or with do not disturb on, the caller hears the voicemail greeting at once.
+2. Otherwise the Worker stores the call with a random queue name and answers `<Enqueue>`. The queue's `waitUrl` (`/queue-wait`) plays ringback and decides when the caller leaves.
+3. The Worker sends a live `incoming` event to every open tab and a high-urgency Web Push to every subscribed device. Tapping the notice opens `/answer/<call id>`.
+4. Answering from the sheet or the notice places a call from the browser with `AnswerCallId`. The Worker checks it belongs to the owner, is still waiting and is not claimed, then answers `<Dial><Queue>`.
+5. Just before the bridge, Twilio requests `/queue-bridge`, which marks the call answered and tells every other tab to stop ringing.
+6. When the ring time is up or the owner declined, the caller leaves the queue and `/queue-done` answers with the voicemail greeting and `<Record>`. The recording goes to the voicemail pipeline.
+
+Every call keeps one row, keyed by the caller's CallSid, with an outcome: answered, missed, voicemail, declined or blocked. Only missed calls count as missed and get the missed call notice.
+
 ## Decision records
 
 The short records of the foundation choices are in [docs/decisions.md](https://github.com/bts-io/talvuno/blob/main/docs/decisions.md) in the repository. In brief:
@@ -66,5 +100,6 @@ The short records of the foundation choices are in [docs/decisions.md](https://g
 | 8 | Foreground calls only, said plainly | A web app cannot ring a locked phone. The app says so on setup, the keypad and settings. |
 | 9 | English only, with right-to-left plumbing | Every string goes through i18next, and the layout uses start and end properties. |
 | 10 | Phone numbers are E.164 everywhere | One normal form for comparing and storing, and an empty country list by default. |
+| 11 | Every inbound call waits in a queue of its own | A closed app cannot be woken to ring. The caller waits with ringback, a push opens the app, and the first device to claim the call is bridged. |
 
 A decision that changes one of these adds a new record instead of editing the old one.
