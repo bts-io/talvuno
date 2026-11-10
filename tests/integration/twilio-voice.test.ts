@@ -428,6 +428,25 @@ describe("waiting caller: ringback and ring time", () => {
     expect(await queueDone("leave")).toBe(VOICEMAIL(DEFAULT_GREETING));
   });
 
+  it.each(["error", "queue-full", "system-error", "redirected"])(
+    "sends the caller to voicemail when the queue ends with %s",
+    async (result) => {
+      await setup();
+      await inbound();
+      expect(await queueDone(result)).toBe(VOICEMAIL(DEFAULT_GREETING));
+      expect(await calls()).toMatchObject([{ outcome: "voicemail" }]);
+    },
+  );
+
+  it.each(["bridged", "bridging-in-process", "hangup"])(
+    "ends the call when the queue ends with %s",
+    async (result) => {
+      await setup();
+      await inbound();
+      expect(await queueDone(result)).toBe(response("<Hangup/>"));
+    },
+  );
+
   it("deletes the call's queue once the caller left it", async () => {
     await setup();
     await inbound();
