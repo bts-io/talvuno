@@ -6,21 +6,27 @@
  *   GET  /conversations?numberId&cursor&q    threads, newest activity first
  *   GET  /conversations/:id                  one thread's header
  *   GET  /conversations/:id/messages?cursor  a thread's messages, newest first
- *   POST /conversations/:id/read             marks a thread read
+ *   POST /conversations/:id/read             marks a thread read (and clears a manual unread flag)
+ *   POST /conversations/:id/pin              { pinned } pins a thread to the top (un-archives it)
+ *   POST /conversations/:id/archive          { archived } moves a thread out of the main list (unpins it)
+ *   POST /conversations/:id/unread           { unread } marks a thread unread by hand
  *   GET  /search?q                           message bodies and contact names
  */
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt, or, type SQL, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import {
+  archiveInputSchema,
   type ConversationListItem,
   type Page,
+  pinInputSchema,
   type SearchResult,
   type SendSmsResult,
   type SmsNumber,
   sendSmsInputSchema,
   type ThreadMessage,
+  unreadInputSchema,
 } from "../../contracts/messages";
 import { toE164 } from "../../lib/phone";
 import { contactNumbers, contacts, conversations, messages, phoneNumbers } from "../db/schema";
@@ -62,6 +68,9 @@ const conversationColumns = {
   lastMessageAt: conversations.lastMessageAt,
   lastMessagePreview: conversations.lastMessagePreview,
   unreadCount: conversations.unreadCount,
+  pinnedAt: conversations.pinnedAt,
+  archivedAt: conversations.archivedAt,
+  markedUnread: conversations.markedUnread,
   contactName: contactNameSql,
 };
 
@@ -73,12 +82,17 @@ type ConversationRow = {
   lastMessageAt: Date | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  pinnedAt: Date | null;
+  archivedAt: Date | null;
+  markedUnread: boolean;
   contactName: string | null;
 };
 
 const toListItem = (r: ConversationRow): ConversationListItem => ({
   ...r,
   lastMessageAt: r.lastMessageAt ? r.lastMessageAt.getTime() : null,
+  pinnedAt: r.pinnedAt ? r.pinnedAt.getTime() : null,
+  archivedAt: r.archivedAt ? r.archivedAt.getTime() : null,
 });
 
 const sortTime = sql<number>`COALESCE(${conversations.lastMessageAt}, 0)`;
@@ -153,30 +167,53 @@ const listQuery = z.object({
   numberId: z.string().max(64).optional(),
   cursor: z.string().max(200).optional(),
   q: z.string().trim().max(100).optional(),
+  // "1" lists archived threads instead of the main list.
+  archived: z.enum(["0", "1"]).optional(),
 });
 
 messagesApi.get("/conversations", zValidator("query", listQuery, validationHook), async (c) => {
+  const db = c.get("db");
   const ownerId = c.get("user")!.id;
-  const { numberId, cursor, q } = c.req.valid("query");
+  const { numberId, cursor, q, archived } = c.req.valid("query");
+  const archivedView = archived === "1";
   const after = decodeCursor(cursor);
-  const filters: (SQL | undefined)[] = [eq(conversations.ownerId, ownerId)];
+  const filters: (SQL | undefined)[] = [
+    eq(conversations.ownerId, ownerId),
+    archivedView ? isNotNull(conversations.archivedAt) : isNull(conversations.archivedAt),
+  ];
   if (numberId) filters.push(eq(conversations.numberId, numberId));
   if (q) filters.push(or(escapeLike(sql`${conversations.participant}`, q), escapeLike(contactNameSql, q)));
+
+  // Pinned threads come first and only on the first page, newest pin first. The pages below skip them.
+  const pinned =
+    !archivedView && !after
+      ? await db
+          .select(conversationColumns)
+          .from(conversations)
+          .innerJoin(phoneNumbers, eq(phoneNumbers.id, conversations.numberId))
+          .where(and(...filters, isNotNull(conversations.pinnedAt)))
+          .orderBy(desc(conversations.pinnedAt), desc(conversations.id))
+          .all()
+      : [];
+  const pageFilters = [...filters];
+  if (!archivedView) pageFilters.push(isNull(conversations.pinnedAt));
   if (after)
-    filters.push(or(lt(sortTime, after.at), and(eq(sortTime, after.at), lt(conversations.id, after.id))));
-  const rows = await c
-    .get("db")
+    pageFilters.push(or(lt(sortTime, after.at), and(eq(sortTime, after.at), lt(conversations.id, after.id))));
+  const rows = await db
     .select(conversationColumns)
     .from(conversations)
     .innerJoin(phoneNumbers, eq(phoneNumbers.id, conversations.numberId))
-    .where(and(...filters))
+    .where(and(...pageFilters))
     .orderBy(desc(sortTime), desc(conversations.id))
     .limit(PAGE_SIZE + 1)
     .all();
-  const items = rows.slice(0, PAGE_SIZE).map(toListItem);
-  const last = items[items.length - 1];
+  const page = rows.slice(0, PAGE_SIZE).map(toListItem);
+  const last = page[page.length - 1];
   const nextCursor = rows.length > PAGE_SIZE && last ? encodeCursor(last.lastMessageAt ?? 0, last.id) : null;
-  return c.json({ items, nextCursor } satisfies Page<ConversationListItem>);
+  return c.json({
+    items: [...pinned.map(toListItem), ...page],
+    nextCursor,
+  } satisfies Page<ConversationListItem>);
 });
 
 async function ownedConversation(c: Pick<Context<AppEnv>, "get">, id: string) {
@@ -223,11 +260,11 @@ messagesApi.get("/conversations/:id/messages", zValidator("query", pageQuery, va
 
 messagesApi.post("/conversations/:id/read", async (c) => {
   const conversation = await ownedConversation(c, c.req.param("id"));
-  if (conversation.unreadCount > 0) {
+  if (conversation.unreadCount > 0 || conversation.markedUnread) {
     await c
       .get("db")
       .update(conversations)
-      .set({ unreadCount: 0 })
+      .set({ unreadCount: 0, markedUnread: false })
       .where(eq(conversations.id, conversation.id));
     await notify(
       c.env,
@@ -238,6 +275,38 @@ messagesApi.post("/conversations/:id/read", async (c) => {
   }
   return c.json({ ok: true });
 });
+
+/** Sets thread flags and tells the owner's other tabs. Pinning and archiving exclude each other. */
+async function setThreadFlag(
+  c: Context<AppEnv>,
+  set: Partial<typeof conversations.$inferInsert>,
+): Promise<Response> {
+  const conversation = await ownedConversation(c, c.req.param("id") ?? "");
+  await c.get("db").update(conversations).set(set).where(eq(conversations.id, conversation.id));
+  await notify(
+    c.env,
+    c.get("user")!.id,
+    { type: "conversation", conversationId: conversation.id },
+    c.executionCtx,
+  );
+  return c.json(toListItem(await ownedConversation(c, conversation.id)));
+}
+
+messagesApi.post("/conversations/:id/pin", zValidator("json", pinInputSchema, validationHook), (c) =>
+  c.req.valid("json").pinned
+    ? setThreadFlag(c, { pinnedAt: new Date(), archivedAt: null })
+    : setThreadFlag(c, { pinnedAt: null }),
+);
+
+messagesApi.post("/conversations/:id/archive", zValidator("json", archiveInputSchema, validationHook), (c) =>
+  c.req.valid("json").archived
+    ? setThreadFlag(c, { archivedAt: new Date(), pinnedAt: null })
+    : setThreadFlag(c, { archivedAt: null }),
+);
+
+messagesApi.post("/conversations/:id/unread", zValidator("json", unreadInputSchema, validationHook), (c) =>
+  setThreadFlag(c, { markedUnread: c.req.valid("json").unread }),
+);
 
 const searchQuery = z.object({ q: z.string().trim().min(1).max(100) });
 

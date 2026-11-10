@@ -1,12 +1,13 @@
 import { ArrowLeft, Paperclip, WarningCircle } from "@phosphor-icons/react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { clsx } from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ThreadMessage } from "../../contracts/messages";
 import { isE164 } from "../../lib/phone";
 import { SmsComposer } from "../components/sms-composer";
+import { ThreadHeaderActions } from "../components/thread-actions";
 import { queryKeys } from "../lib/live";
 import {
   conversationQuery,
@@ -28,6 +29,7 @@ function ThreadPage() {
   const conversation = useQuery(conversationQuery(conversationId));
   const thread = useInfiniteQuery(threadQuery(conversationId));
   const send = useSendMessage();
+  const navigate = useNavigate();
   const bottom = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const c = conversation.data;
@@ -37,7 +39,7 @@ function ThreadPage() {
   const newestId = items[items.length - 1]?.id;
 
   // Opening the thread (and any new message arriving while it is open) marks it read.
-  const unread = c?.unreadCount ?? 0;
+  const unread = (c?.unreadCount ?? 0) + (c?.markedUnread ? 1 : 0);
   useEffect(() => {
     if (unread > 0)
       void markRead(conversationId).then(() => qc.invalidateQueries({ queryKey: queryKeys.conversations }));
@@ -83,6 +85,15 @@ function ThreadPage() {
             <p className="truncate text-xs text-slate-500">{displayAddress(c.participant)}</p>
           )}
         </div>
+        {c ? (
+          <ThreadHeaderActions
+            c={c}
+            // Archiving or marking unread sends you back to the list, like closing the thread.
+            onDone={(flag) => {
+              if (flag === "archive" || flag === "unread") void navigate({ to: "/messages" });
+            }}
+          />
+        ) : null}
       </header>
 
       <div className="flex-1 overflow-y-auto px-3 py-4" aria-live="polite">

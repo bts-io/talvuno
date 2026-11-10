@@ -21,6 +21,10 @@ export type ThreadMessage = z.infer<typeof threadMessageSchema>;
 export const conversationListItemSchema = conversationSchema.extend({
   contactName: z.string().nullable(),
   numberE164: z.string(),
+  pinnedAt: z.number().int().nonnegative().nullable(),
+  archivedAt: z.number().int().nonnegative().nullable(),
+  /** The owner marked the thread unread by hand. */
+  markedUnread: z.boolean(),
 });
 export type ConversationListItem = z.infer<typeof conversationListItemSchema>;
 
@@ -35,6 +39,10 @@ export const sendSmsInputSchema = z.object({
   body: z.string().min(1).max(SMS_BODY_MAX),
   clientId: z.uuid(),
 });
+export const pinInputSchema = z.object({ pinned: z.boolean() }).strict();
+export const archiveInputSchema = z.object({ archived: z.boolean() }).strict();
+export const unreadInputSchema = z.object({ unread: z.boolean() }).strict();
+
 export type SendSmsInput = z.infer<typeof sendSmsInputSchema>;
 
 export type SendSmsResult = { message: ThreadMessage; conversationId: string };

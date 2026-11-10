@@ -303,7 +303,22 @@
     "sendFailed": "The message was not sent: {{message}}",
     "a2pNote": "Texting US recipients from a US number needs A2P 10DLC registration in Twilio. Without it, carriers may block your messages.",
     "cannotReply": "This sender cannot receive replies.",
-    "quickReplies": "Quick replies"
+    "quickReplies": "Quick replies",
+    "archivedTitle": "Archived",
+    "showArchived": "Show archived conversations",
+    "showInbox": "Back to conversations",
+    "emptyArchived": "No archived conversations. A new message brings a conversation back to the list.",
+    "pinned": "Pinned",
+    "markedUnread": "Marked unread",
+    "actions": {
+      "more": "More actions",
+      "pin": "Pin to top",
+      "unpin": "Unpin",
+      "archive": "Archive",
+      "unarchive": "Move back to list",
+      "markUnread": "Mark unread",
+      "markRead": "Mark read"
+    }
   },
   "voice": {
     "callerId": "Call from",

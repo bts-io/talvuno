@@ -100,6 +100,11 @@ export const conversations = sqliteTable(
     lastMessageAt: integer("last_message_at", { mode: "timestamp_ms" }),
     lastMessagePreview: text("last_message_preview"),
     unreadCount: integer("unread_count").notNull().default(0),
+    // Pinned threads sit above the rest, newest pin first. Archived threads leave the main list until a new message arrives.
+    pinnedAt: integer("pinned_at", { mode: "timestamp_ms" }),
+    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
+    // The owner marked the thread unread by hand. Opening the thread clears it.
+    markedUnread: integer("marked_unread", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

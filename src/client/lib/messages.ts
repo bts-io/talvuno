@@ -26,12 +26,13 @@ export const smsNumbersQuery = () =>
     staleTime: 60_000,
   });
 
-export const conversationsQuery = (numberId: string | null, q: string) =>
+export const conversationsQuery = (numberId: string | null, q: string, archived = false) =>
   infiniteQueryOptions({
-    queryKey: [...queryKeys.conversations, "list", numberId ?? "all", q],
+    queryKey: [...queryKeys.conversations, "list", numberId ?? "all", q, archived ? "archived" : "main"],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams();
       if (numberId) params.set("numberId", numberId);
+      if (archived) params.set("archived", "1");
       if (q) params.set("q", q);
       if (pageParam) params.set("cursor", pageParam);
       return api<Page<ConversationListItem>>(`/api/messages/conversations?${params}`);
@@ -66,6 +67,44 @@ export const searchQuery = (q: string) =>
 
 export const markRead = (id: string) =>
   api(`/api/messages/conversations/${encodeURIComponent(id)}/read`, { method: "POST" });
+
+/** Pin, archive and mark unread. The server returns the updated thread; lists refresh through the live roots. */
+export type ThreadFlag = "pin" | "unpin" | "archive" | "unarchive" | "unread" | "read";
+
+const FLAG_REQUESTS: Record<ThreadFlag, [string, Record<string, boolean>]> = {
+  pin: ["pin", { pinned: true }],
+  unpin: ["pin", { pinned: false }],
+  archive: ["archive", { archived: true }],
+  unarchive: ["archive", { archived: false }],
+  unread: ["unread", { unread: true }],
+  read: ["unread", { unread: false }],
+};
+
+export function useThreadFlag() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, flag }: { id: string; flag: ThreadFlag }) => {
+      const [path, json] = FLAG_REQUESTS[flag];
+      return api<ConversationListItem>(`/api/messages/conversations/${encodeURIComponent(id)}/${path}`, {
+        method: "POST",
+        json,
+      });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.conversations }),
+  });
+}
+
+/** Which flag change each action of a thread's menu makes, from its current state. */
+export function threadFlagChoices(
+  c: Pick<ConversationListItem, "pinnedAt" | "archivedAt" | "unreadCount" | "markedUnread">,
+) {
+  const unread = c.unreadCount > 0 || c.markedUnread;
+  return {
+    pin: (c.pinnedAt ? "unpin" : "pin") as ThreadFlag,
+    archive: (c.archivedAt ? "unarchive" : "archive") as ThreadFlag,
+    unread: (unread ? "read" : "unread") as ThreadFlag,
+  };
+}
 
 export type SendInput = {
   numberId: string;

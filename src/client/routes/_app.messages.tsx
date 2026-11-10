@@ -1,4 +1,4 @@
-import { MagnifyingGlass, NotePencil } from "@phosphor-icons/react";
+import { Archive, MagnifyingGlass, NotePencil, PushPin } from "@phosphor-icons/react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { clsx } from "clsx";
@@ -6,6 +6,7 @@ import { useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConversationListItem, SearchResult } from "../../contracts/messages";
 import { formatPhone } from "../../lib/phone";
+import { ThreadRowMenu, useLongPress } from "../components/thread-actions";
 import { conversationsQuery, displayAddress, searchQuery, smsNumbersQuery } from "../lib/messages";
 
 /**
@@ -49,7 +50,8 @@ function ThreadList() {
   const [search, setSearch] = useState("");
   const q = useDeferredValue(search.trim());
   const numbers = useQuery(smsNumbersQuery());
-  const list = useInfiniteQuery(conversationsQuery(numberId, ""));
+  const [archived, setArchived] = useState(false);
+  const list = useInfiniteQuery(conversationsQuery(numberId, "", archived));
   const found = useQuery(searchQuery(q));
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
   const many = (numbers.data?.length ?? 0) > 1;
@@ -58,15 +60,32 @@ function ThreadList() {
     <>
       <header className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">{t("messages.title")}</h1>
-          <Link
-            to="/messages/new"
-            className="rounded-full p-2 text-brand-blue hover:bg-brand-blue/10"
-            aria-label={t("messages.new")}
-            title={t("messages.new")}
-          >
-            <NotePencil aria-hidden className="size-6" />
-          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {archived ? t("messages.archivedTitle") : t("messages.title")}
+          </h1>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setArchived((v) => !v)}
+              aria-pressed={archived}
+              className={clsx(
+                "rounded-full p-2 hover:bg-brand-blue/10",
+                archived ? "bg-brand-blue/10 text-brand-blue" : "text-slate-500",
+              )}
+              aria-label={archived ? t("messages.showInbox") : t("messages.showArchived")}
+              title={archived ? t("messages.showInbox") : t("messages.showArchived")}
+            >
+              <Archive aria-hidden className="size-6" />
+            </button>
+            <Link
+              to="/messages/new"
+              className="rounded-full p-2 text-brand-blue hover:bg-brand-blue/10"
+              aria-label={t("messages.new")}
+              title={t("messages.new")}
+            >
+              <NotePencil aria-hidden className="size-6" />
+            </Link>
+          </div>
         </div>
         <label className="relative block">
           <span className="sr-only">{t("messages.search")}</span>
@@ -107,7 +126,9 @@ function ThreadList() {
         ) : list.isPending ? (
           <p className="p-4 text-slate-500">{t("messages.loading")}</p>
         ) : items.length === 0 ? (
-          <p className="p-4 text-slate-500 dark:text-slate-400">{t("messages.empty")}</p>
+          <p className="p-4 text-slate-500 dark:text-slate-400">
+            {archived ? t("messages.emptyArchived") : t("messages.empty")}
+          </p>
         ) : (
           <ul>
             {items.map((c) => (
@@ -141,9 +162,11 @@ function timeLabel(ms: number | null, locale: string) {
 
 function ThreadRow({ c, showNumber }: { c: ConversationListItem; showNumber: boolean }) {
   const { t, i18n } = useTranslation();
-  const unread = c.unreadCount > 0;
+  const unread = c.unreadCount > 0 || c.markedUnread;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const press = useLongPress(() => setMenuOpen(true));
   return (
-    <li>
+    <li className="relative" {...press}>
       <Link
         to="/messages/$conversationId"
         params={{ conversationId: c.id }}
@@ -152,10 +175,19 @@ function ThreadRow({ c, showNumber }: { c: ConversationListItem; showNumber: boo
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className={clsx("truncate", unread ? "font-semibold" : "font-medium")}>
-              {c.contactName ?? displayAddress(c.participant)}
+            <span
+              className={clsx("flex min-w-0 items-center gap-1", unread ? "font-semibold" : "font-medium")}
+            >
+              {c.pinnedAt ? (
+                <PushPin
+                  aria-label={t("messages.pinned")}
+                  weight="fill"
+                  className="size-3.5 shrink-0 text-slate-400"
+                />
+              ) : null}
+              <span className="truncate">{c.contactName ?? displayAddress(c.participant)}</span>
             </span>
-            <time className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
+            <time className="me-8 shrink-0 text-xs text-slate-500 dark:text-slate-400">
               {timeLabel(c.lastMessageAt, i18n.language)}
             </time>
           </div>
@@ -172,15 +204,20 @@ function ThreadRow({ c, showNumber }: { c: ConversationListItem; showNumber: boo
               <span
                 className="shrink-0 rounded-full bg-brand-blue px-2 py-0.5 text-xs font-semibold text-white"
                 role="img"
-                aria-label={t("messages.unread", { count: c.unreadCount })}
+                aria-label={
+                  c.unreadCount > 0
+                    ? t("messages.unread", { count: c.unreadCount })
+                    : t("messages.markedUnread")
+                }
               >
-                {c.unreadCount}
+                {c.unreadCount > 0 ? c.unreadCount : " "}
               </span>
             )}
           </div>
           {showNumber && <p className="text-xs text-slate-400">{formatPhone(c.numberE164)}</p>}
         </div>
       </Link>
+      <ThreadRowMenu c={c} open={menuOpen} setOpen={setMenuOpen} />
     </li>
   );
 }
