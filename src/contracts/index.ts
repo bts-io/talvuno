@@ -188,6 +188,15 @@ export type Call = z.infer<typeof callSchema>;
 
 // Preferences
 
+const isTimeZone = (value: string) => {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const preferencesSchema = z.object({
   defaultNumberId: idSchema.nullable(),
   countryAllowlist: z.array(countryCodeSchema).max(250),
@@ -195,6 +204,11 @@ export const preferencesSchema = z.object({
   theme: z.enum(["system", "light", "dark"]),
   smsPerHour: z.number().int().min(0).max(10_000),
   callsPerHour: z.number().int().min(0).max(1_000),
+  digestEnabled: z.boolean(),
+  /** 24-hour HH:MM in `timezone`. */
+  digestTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 08:00"),
+  /** An IANA zone name such as Australia/Sydney. */
+  timezone: z.string().min(1).max(64).refine(isTimeZone, "Unknown time zone"),
 });
 export type Preferences = z.infer<typeof preferencesSchema>;
 

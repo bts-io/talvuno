@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ForegroundCallNote } from "../components/foreground-call-note";
 import { NotificationsSettings } from "../components/notifications-settings";
 import { AccountSection } from "../components/settings/account-section";
+import { DigestSection } from "../components/settings/digest-section";
 import { NumbersSection } from "../components/settings/numbers-section";
 import { SafetySection } from "../components/settings/safety-section";
 import { SetupCheckSection } from "../components/settings/setup-check-section";
@@ -18,6 +19,7 @@ function SettingsPage() {
       <NotificationsSettings />
       <NumbersSection />
       <SafetySection />
+      <DigestSection />
       <AccountSection />
       <SetupCheckSection />
     </div>

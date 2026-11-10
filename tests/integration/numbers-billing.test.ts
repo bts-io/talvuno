@@ -388,6 +388,9 @@ describe("/api/preferences", () => {
       theme: "system",
       smsPerHour: 30,
       callsPerHour: 20,
+      digestEnabled: false,
+      digestTime: "08:00",
+      timezone: "UTC",
     });
   });
 

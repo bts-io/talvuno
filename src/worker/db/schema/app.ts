@@ -225,6 +225,14 @@ export const userPreferences = sqliteTable("user_preferences", {
     .default("system"),
   smsPerHour: integer("sms_per_hour").notNull().default(30),
   callsPerHour: integer("calls_per_hour").notNull().default(20),
+  // Morning digest: off by default. `digest_time` is HH:MM in the IANA zone `timezone`.
+  digestEnabled: integer("digest_enabled", { mode: "boolean" }).notNull().default(false),
+  digestTime: text("digest_time").notNull().default("08:00"),
+  timezone: text("timezone").notNull().default("UTC"),
+  // Local date (YYYY-MM-DD in `timezone`) of the last digest, and when it went, so a day sends once and
+  // the next digest counts from there.
+  lastDigestDate: text("last_digest_date"),
+  lastDigestAt: integer("last_digest_at", { mode: "timestamp_ms" }),
   updatedAt: updatedAt(),
 });
 
