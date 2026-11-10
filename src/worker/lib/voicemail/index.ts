@@ -17,6 +17,7 @@ import { findContactByNumber } from "../contacts";
 import { notifyOwner } from "../hub";
 import { TwilioApiError, TwilioNotConfiguredError, twilioRest } from "../twilio/rest";
 import { isWithheld, partyLabel } from "../voice/call-rules";
+import { quietPushNow } from "../voice/routing";
 
 const { voicemails, voicemailSettings } = schema;
 
@@ -67,6 +68,19 @@ export const firstLine = (text: string) =>
 async function callerLabel(db: Db, row: VoicemailRow) {
   const contact = isWithheld(row.from) ? null : await findContactByNumber(db, row.ownerId, row.from);
   return partyLabel(row.from, contact?.displayName ?? null);
+}
+
+/**
+ * Whether the notices for this voicemail stay quiet: do not disturb is on, or the number it came in on is
+ * outside its business hours. The live event still reaches open screens.
+ */
+async function quietFor(db: Db, row: VoicemailRow) {
+  const call = await db
+    .select({ numberId: schema.calls.numberId })
+    .from(schema.calls)
+    .where(eq(schema.calls.id, row.callId))
+    .get();
+  return quietPushNow(db, row.ownerId, call?.numberId ?? null);
 }
 
 /** The voicemail notice. Tagged by call, so the transcript notice replaces the first one. */
@@ -180,7 +194,7 @@ export async function storeVoicemail(
       type: "voicemail",
       voicemailId: stored.id,
       callId: stored.callId,
-      push: voicemailPush(stored, await callerLabel(db, stored)),
+      push: (await quietFor(db, stored)) ? undefined : voicemailPush(stored, await callerLabel(db, stored)),
     },
     ctx,
   );
@@ -218,7 +232,9 @@ export async function transcribeVoicemail(env: Env, voicemailId: string): Promis
     callId: updated.callId,
     // The second notice only when there is something to read; it replaces the first (same tag).
     push:
-      text && !updated.listenedAt ? voicemailPush(updated, await callerLabel(db, updated), text) : undefined,
+      text && !updated.listenedAt && !(await quietFor(db, updated))
+        ? voicemailPush(updated, await callerLabel(db, updated), text)
+        : undefined,
   });
   return "done";
 }

@@ -11,6 +11,7 @@ import {
   voicemailKey,
 } from "../../src/worker/lib/voicemail";
 import { parseRange } from "../../src/worker/routes/voicemails";
+import { b64u, newReceiver, newVapid } from "../unit/webpush-decrypt";
 import { createOwner, resetDb, Session } from "./helpers";
 import { signedTwilioPost } from "./twilio-helpers";
 
@@ -306,6 +307,88 @@ describe("recording status callback", () => {
     deleteFails = false;
     await repairVoicemails(env);
     expect((await rows())[0]!.twilio_deleted_at).not.toBeNull();
+  });
+});
+
+const PUSH_ENDPOINT = "https://push.example.test/device";
+
+/** Registers one web push device for the owner and returns a reader of the pushes sent to it. */
+async function capturePushes(ownerId: string, seen: TwilioCall[]) {
+  const vapid = await newVapid();
+  const keys = env as unknown as Record<string, string>;
+  keys.VAPID_PUBLIC_KEY = vapid.publicKey;
+  keys.VAPID_PRIVATE_KEY = vapid.privateKey;
+  keys.VAPID_SUBJECT = vapid.subject;
+  const r = await newReceiver();
+  await env.DB.prepare(
+    "INSERT INTO push_subscriptions (id, owner_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  )
+    .bind(
+      crypto.randomUUID(),
+      ownerId,
+      PUSH_ENDPOINT,
+      b64u.encode(r.publicKey),
+      b64u.encode(r.authSecret),
+      Date.now(),
+    )
+    .run();
+  const twilio = vi.mocked(globalThis.fetch).getMockImplementation()!;
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url === PUSH_ENDPOINT) {
+      seen.push({ method: "PUSH", url, auth: null });
+      return new Response(null, { status: 201 });
+    }
+    return twilio(input, init);
+  });
+  return async () => {
+    await new Promise((res) => setTimeout(res, 200));
+    return seen.filter((s) => s.method === "PUSH").length;
+  };
+}
+
+describe("push notices", () => {
+  afterEach(() => {
+    const keys = env as unknown as Record<string, string | undefined>;
+    keys.VAPID_PUBLIC_KEY = undefined;
+    keys.VAPID_PRIVATE_KEY = undefined;
+    keys.VAPID_SUBJECT = undefined;
+  });
+
+  it("pushes the new voicemail and its transcript when the owner is reachable", async () => {
+    const seen = mockTwilio();
+    const { owner, numberId } = await setup();
+    const pushes = await capturePushes(owner.userId, seen);
+    const row = await storedVoicemail(owner.userId, numberId);
+    expect(await pushes()).toBe(1);
+    mockAi(async () => ({ text: "Call me back." }));
+    await handleTranscribeBatch(fakeBatch([{ body: { voicemailId: row.id }, attempts: 1 }]).batch, env);
+    expect(await pushes()).toBe(2);
+  });
+
+  it("sends no push during do not disturb, but still tells open screens", async () => {
+    const seen = mockTwilio();
+    const { owner, numberId } = await setup();
+    const pushes = await capturePushes(owner.userId, seen);
+    await owner.json("PUT", "/api/routing/dnd", { dnd: true });
+    const row = await storedVoicemail(owner.userId, numberId);
+    mockAi(async () => ({ text: "Call me back." }));
+    await handleTranscribeBatch(fakeBatch([{ body: { voicemailId: row.id }, attempts: 1 }]).batch, env);
+    expect(await pushes()).toBe(0);
+    const [after] = await rows();
+    expect(after).toMatchObject({ transcript: "Call me back.", transcript_status: "done" });
+  });
+
+  it("sends no push outside the number's business hours", async () => {
+    const seen = mockTwilio();
+    const { owner, numberId } = await setup();
+    const pushes = await capturePushes(owner.userId, seen);
+    // Open hours on no day at all: always closed.
+    await owner.json("PUT", `/api/routing/numbers/${numberId}`, { hours: { timeZone: "UTC", days: [] } });
+    const row = await storedVoicemail(owner.userId, numberId);
+    mockAi(async () => ({ text: "Call me back." }));
+    await handleTranscribeBatch(fakeBatch([{ body: { voicemailId: row.id }, attempts: 1 }]).batch, env);
+    expect(await pushes()).toBe(0);
   });
 });
 
