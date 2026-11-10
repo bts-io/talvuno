@@ -9,9 +9,9 @@ import {
 } from "../../../contracts/routing";
 import { VOICEMAIL_RETENTION_MAX_DAYS, type VoicemailSettings } from "../../../contracts/voicemail";
 import { formatPhone } from "../../../lib/phone";
-import { api } from "../../lib/api";
 import { routingQuery, saveNumberRouting } from "../../hooks/use-routing";
 import { numbersQuery } from "../../hooks/use-settings";
+import { api } from "../../lib/api";
 import { ErrorLine, inputClass, primaryButtonClass, Section } from "./section";
 
 const KEY = ["voicemail-settings"] as const;
