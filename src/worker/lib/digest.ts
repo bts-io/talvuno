@@ -3,24 +3,16 @@
  * last one. Run by the cron job `sendDigests` every 15 minutes, so it must be idempotent: the local date is
  * claimed with a conditional update before anything is sent.
  */
-import { and, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { MISSED_STATUSES } from "../../contracts/contacts";
+import { and, eq, gt, inArray, isNull, ne, notInArray, or, sql } from "drizzle-orm";
+import { MISSED_STATUSES, NOT_MISSED_OUTCOMES } from "../../contracts/contacts";
 import { createDb, type Db, schema } from "../db";
 import { type DigestCounts, digestBody, digestDue } from "./digest-rules";
 import { sendPushToOwner } from "./push";
 
-const { calls, conversations, userPreferences } = schema;
+const { calls, conversations, userPreferences, voicemails } = schema;
 
 /** With no earlier digest, count the last day. */
 const FIRST_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-/** Whether Row B's voicemails table exists yet. Cheap, and keeps the digest working before it lands. */
-async function hasVoicemailsTable(db: Db): Promise<boolean> {
-  const row = await db.$client
-    .prepare("SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = 'voicemails'")
-    .first();
-  return row !== null;
-}
 
 /** Counts for one owner since `since`. Every query is scoped to the owner. */
 export async function digestCounts(db: Db, ownerId: string, since: Date): Promise<DigestCounts> {
@@ -33,6 +25,8 @@ export async function digestCounts(db: Db, ownerId: string, since: Date): Promis
         eq(calls.direction, "inbound"),
         inArray(calls.status, [...MISSED_STATUSES]),
         isNull(calls.answeredAt),
+        // The same rule as `isMissedCall`: voicemail, declined and blocked calls are not missed.
+        or(isNull(calls.outcome), notInArray(calls.outcome, [...NOT_MISSED_OUTCOMES])),
         gt(sql`coalesce(${calls.startedAt}, ${calls.createdAt})`, since.getTime()),
       ),
     );
@@ -41,19 +35,15 @@ export async function digestCounts(db: Db, ownerId: string, since: Date): Promis
     .from(conversations)
     .where(eq(conversations.ownerId, ownerId));
 
-  let voicemails = 0;
-  if (await hasVoicemailsTable(db)) {
-    try {
-      const row = await db.$client
-        .prepare("SELECT count(*) AS n FROM voicemails WHERE owner_id = ? AND created_at > ?")
-        .bind(ownerId, since.getTime())
-        .first<{ n: number }>();
-      voicemails = row?.n ?? 0;
-    } catch (err) {
-      console.error("digest voicemail count failed", { error: String(err) });
-    }
-  }
-  return { missedCalls: Number(missed?.n ?? 0), voicemails, unreadTexts: Number(unread?.n ?? 0) };
+  const [vm] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(voicemails)
+    .where(and(eq(voicemails.ownerId, ownerId), gt(voicemails.createdAt, since)));
+  return {
+    missedCalls: Number(missed?.n ?? 0),
+    voicemails: Number(vm?.n ?? 0),
+    unreadTexts: Number(unread?.n ?? 0),
+  };
 }
 
 /** Cron job: sends the digest to every owner whose local time has passed their chosen time today. */

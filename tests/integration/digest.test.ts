@@ -29,7 +29,6 @@ afterEach(async () => {
   env.VAPID_PUBLIC_KEY = undefined;
   env.VAPID_PRIVATE_KEY = undefined;
   env.VAPID_SUBJECT = undefined;
-  await env.DB.prepare("DROP TABLE IF EXISTS voicemails").run();
 });
 
 const HOUR = 3_600_000;
@@ -238,40 +237,53 @@ describe("digestCounts", () => {
     expect((await digestCounts(db, s.userId, new Date(EIGHT_NY - HOUR))).missedCalls).toBe(0);
   });
 
-  it("works without a voicemails table and counts one when it exists", async () => {
+  it("does not count blocked, voicemail or declined calls as missed", async () => {
     const s = await createOwner();
     const db = createDb(env.DB);
-    const since = new Date(EIGHT_NY - 24 * HOUR);
-    const exists = await env.DB.prepare(
-      "SELECT 1 AS x FROM sqlite_master WHERE type = 'table' AND name = 'voicemails'",
-    ).first();
-    expect(exists).toBeNull();
-    expect((await digestCounts(db, s.userId, since)).voicemails).toBe(0);
-
-    await env.DB.prepare(
-      "CREATE TABLE voicemails (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
-    ).run();
-    const add = (owner: string, at: number) =>
-      env.DB.prepare("INSERT INTO voicemails (id, owner_id, created_at) VALUES (?, ?, ?)")
-        .bind(crypto.randomUUID(), owner, at)
+    for (const outcome of [null, "missed", "voicemail", "declined", "blocked"]) {
+      await env.DB.prepare(
+        `INSERT INTO calls (id, owner_id, twilio_call_sid, direction, party, status, outcome, started_at, created_at, updated_at)
+         VALUES (?, ?, ?, 'inbound', '+1555', 'no-answer', ?, ?, ?, ?)`,
+      )
+        .bind(
+          crypto.randomUUID(),
+          s.userId,
+          `CA${crypto.randomUUID()}`,
+          outcome,
+          EIGHT_NY,
+          EIGHT_NY,
+          EIGHT_NY,
+        )
         .run();
+    }
+    expect((await digestCounts(db, s.userId, new Date(EIGHT_NY - HOUR))).missedCalls).toBe(2);
+  });
+
+  it("counts this owner's voicemails since the last digest", async () => {
+    const s = await createOwner();
+    const db = createDb(env.DB);
+    await env.DB.prepare(
+      "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES ('other', 'Other', 'other@talvuno.test', 0, 0, 0)",
+    ).run();
+    const add = async (owner: string, at: number) => {
+      const callId = crypto.randomUUID();
+      await env.DB.prepare(
+        `INSERT INTO calls (id, owner_id, twilio_call_sid, direction, party, status, outcome, started_at, created_at, updated_at)
+         VALUES (?, ?, ?, 'inbound', '+1555', 'no-answer', 'voicemail', ?, ?, ?)`,
+      )
+        .bind(callId, owner, `CA${crypto.randomUUID()}`, at, at, at)
+        .run();
+      await env.DB.prepare(
+        "INSERT INTO voicemails (id, owner_id, call_id, \"from\", twilio_recording_sid, created_at) VALUES (?, ?, ?, '+1555', ?, ?)",
+      )
+        .bind(crypto.randomUUID(), owner, callId, `RE${crypto.randomUUID()}`, at)
+        .run();
+    };
     await add(s.userId, EIGHT_NY - HOUR);
     await add(s.userId, EIGHT_NY - 48 * HOUR);
     await add("other", EIGHT_NY - HOUR);
-    expect((await digestCounts(db, s.userId, since)).voicemails).toBe(1);
-  });
-
-  it("keeps counting calls and texts when the voicemails table has an unexpected shape", async () => {
-    const s = await createOwner();
-    const db = createDb(env.DB);
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    await env.DB.prepare("CREATE TABLE voicemails (id TEXT PRIMARY KEY)").run();
-    await addMissed(s.userId, EIGHT_NY - HOUR);
-    expect(await digestCounts(db, s.userId, new Date(EIGHT_NY - 24 * HOUR))).toEqual({
-      missedCalls: 1,
-      voicemails: 0,
-      unreadTexts: 0,
-    });
+    const counts = await digestCounts(db, s.userId, new Date(EIGHT_NY - 24 * HOUR));
+    expect(counts).toEqual({ missedCalls: 0, voicemails: 1, unreadTexts: 0 });
   });
 });
 
