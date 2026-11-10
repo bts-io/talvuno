@@ -1,17 +1,23 @@
 import { PhoneIncoming, PhoneOutgoing, PhoneX, UserPlus } from "@phosphor-icons/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import type { CallEntry, CallFilter, CallList } from "../../contracts/contacts";
 import { formatPhone, isE164 } from "../../lib/phone";
+import { VoicemailList } from "../components/voicemail-list";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/live";
 import { callFailureKey } from "../lib/voice";
 
-export const Route = createFileRoute("/_app/recents")({ component: RecentsPage });
+/** The call filters plus the Voicemail tab, which lists recorded messages instead of calls. */
+type Tab = CallFilter | "voicemail";
+const FILTERS: Tab[] = ["all", "missed", "voicemail"];
 
-const FILTERS: CallFilter[] = ["all", "missed"];
+export const Route = createFileRoute("/_app/recents")({
+  validateSearch: z.object({ filter: z.enum(["all", "missed", "voicemail"]).optional().catch(undefined) }),
+  component: RecentsPage,
+});
 
 /** "3:07" for a call that lasted 187 seconds; hours roll into the minutes field only past one hour. */
 function formatDuration(seconds: number): string {
@@ -34,9 +40,13 @@ function relativeTime(at: number, lng: string, justNow: string): string {
 }
 
 function RecentsPage() {
-  const { t } = useTranslation();
-  const [filter, setFilter] = useState<CallFilter>("all");
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const filter: Tab = Route.useSearch().filter ?? "all";
+  const setFilter = (f: Tab) =>
+    navigate({ to: "/recents", search: f === "all" ? {} : { filter: f }, replace: true });
   const query = useInfiniteQuery({
+    enabled: filter !== "voicemail",
     queryKey: [...queryKeys.calls, filter],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => {
@@ -55,7 +65,7 @@ function RecentsPage() {
       <div
         role="tablist"
         aria-label={t("recents.filter")}
-        className="grid grid-cols-2 gap-1 rounded-xl bg-slate-200/70 p-1 dark:bg-navy-800"
+        className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/70 p-1 dark:bg-navy-800"
       >
         {FILTERS.map((f) => (
           <button
@@ -75,7 +85,9 @@ function RecentsPage() {
         ))}
       </div>
 
-      {query.isError ? (
+      {filter === "voicemail" ? (
+        <VoicemailList when={(at) => relativeTime(at, i18n.language, t("recents.justNow"))} />
+      ) : query.isError ? (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {t("recents.loadFailed")}
         </p>
@@ -93,7 +105,7 @@ function RecentsPage() {
         </ul>
       )}
 
-      {query.hasNextPage ? (
+      {filter !== "voicemail" && query.hasNextPage ? (
         <button
           type="button"
           onClick={() => query.fetchNextPage()}

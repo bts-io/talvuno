@@ -3,12 +3,13 @@ import { type LiveEvent, liveEventSchema } from "../../contracts";
 
 /**
  * Query key roots. Features key their queries under these so live events refresh them:
- *   ["conversations", ...], ["messages", conversationId, ...], ["calls", ...]
+ *   ["conversations", ...], ["messages", conversationId, ...], ["calls", ...], ["voicemails", ...]
  */
 export const queryKeys = {
   conversations: ["conversations"] as const,
   messages: (conversationId: string) => ["messages", conversationId] as const,
   calls: ["calls"] as const,
+  voicemails: ["voicemails"] as const,
 };
 
 /** Which queries a live event makes stale. */
@@ -20,6 +21,8 @@ export function keysForEvent(event: LiveEvent): QueryKey[] {
       return [queryKeys.conversations];
     case "call":
       return [queryKeys.calls];
+    case "voicemail":
+      return [queryKeys.voicemails];
   }
 }
 

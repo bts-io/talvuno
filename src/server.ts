@@ -12,6 +12,7 @@ import { isWorkerOwned } from "./shared/build";
 import { scheduled } from "./worker/cron";
 import worker from "./worker/index";
 import { applyCsp, newNonce } from "./worker/lib/csp";
+import { handleTranscribeBatch } from "./worker/lib/voicemail";
 
 export { OwnerHub } from "./worker/index";
 
@@ -92,4 +93,7 @@ async function fetch(request: Request, env: Env, ctx: ExecutionContext): Promise
   return out;
 }
 
-export default { fetch, scheduled } satisfies ExportedHandler<Env>;
+/** The TRANSCRIBE queue consumer (voicemail transcripts). */
+const queue: ExportedHandlerQueueHandler<Env> = (batch, env) => handleTranscribeBatch(batch, env);
+
+export default { fetch, scheduled, queue } satisfies ExportedHandler<Env>;

@@ -27,6 +27,7 @@ import { quickRepliesApi } from "./routes/quick-replies";
 import { status } from "./routes/status";
 import { twilio } from "./routes/twilio";
 import { voice } from "./routes/voice";
+import { voicemailsRouter } from "./routes/voicemails";
 import type { AppEnv } from "./types";
 
 export { OwnerHub } from "./durable/owner-hub";
@@ -80,6 +81,7 @@ app.route("/api/missed-call-text", missedCallTextApi);
 app.route("/api/quick-replies", quickRepliesApi);
 app.route("/api/twilio", twilio);
 app.route("/api/voice", voice);
+app.route("/api/voicemails", voicemailsRouter);
 
 app.notFound((c) => c.json({ error: "not_found", message: "Not found" }, 404));
 

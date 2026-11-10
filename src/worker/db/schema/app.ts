@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { CALL_STATUSES, MESSAGE_STATUSES } from "../../../contracts/status";
+import { TRANSCRIPT_STATUSES } from "../../../contracts/voicemail";
 import { user } from "./auth";
 
 const id = () =>
@@ -324,3 +325,48 @@ export const missedCallTexts = sqliteTable(
   },
   (t) => [uniqueIndex("missed_call_texts_number_caller_day_idx").on(t.numberId, t.caller, t.day)],
 );
+
+/**
+ * A recorded voicemail. The row exists from the moment Twilio reports the recording, before the audio is
+ * stored: `r2_key` stays null until the audio is in R2, and the Twilio copy is only deleted after that
+ * (`twilio_deleted_at`), so a failed download never loses the message. One voicemail per call.
+ */
+export const voicemails = sqliteTable(
+  "voicemails",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    callId: text("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    numberId: text("number_id").references(() => phoneNumbers.id, { onDelete: "set null" }),
+    from: text("from").notNull(),
+    duration: integer("duration"),
+    twilioRecordingSid: text("twilio_recording_sid").notNull().unique(),
+    r2Key: text("r2_key"),
+    contentType: text("content_type"),
+    size: integer("size"),
+    storeAttempts: integer("store_attempts").notNull().default(0),
+    storeError: text("store_error"),
+    twilioDeletedAt: integer("twilio_deleted_at", { mode: "timestamp_ms" }),
+    transcript: text("transcript"),
+    transcriptStatus: text("transcript_status", { enum: TRANSCRIPT_STATUSES }).notNull().default("pending"),
+    transcriptError: text("transcript_error"),
+    createdAt: createdAt(),
+    listenedAt: integer("listened_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    uniqueIndex("voicemails_call_idx").on(t.callId),
+    index("voicemails_owner_created_idx").on(t.ownerId, t.createdAt, t.id),
+  ],
+);
+
+/** Per-owner voicemail settings. No row means the defaults (keep 90 days). */
+export const voicemailSettings = sqliteTable("voicemail_settings", {
+  ownerId: text("owner_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Days a voicemail is kept. 0 keeps it forever. */
+  retentionDays: integer("retention_days").notNull().default(90),
+  updatedAt: updatedAt(),
+});

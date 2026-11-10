@@ -9,6 +9,7 @@ import { webhookEvents } from "./db/schema";
 import { sendDigests } from "./lib/digest";
 import { refreshStuckMessages } from "./lib/sms";
 import { reconcileStuckCalls } from "./lib/voice/reconcile";
+import { pruneVoicemails, repairVoicemails } from "./lib/voicemail";
 
 export type CronJob = (env: Env, ctx: ExecutionContext) => Promise<void>;
 
@@ -25,6 +26,8 @@ export const cronJobs: CronJob[] = [
   refreshStuckMessages,
   reconcileStuckCalls,
   sendDigests,
+  repairVoicemails,
+  pruneVoicemails,
 ];
 
 /** Runs every job, each on its own, and waits for all of them. */

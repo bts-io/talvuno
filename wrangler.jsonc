@@ -32,8 +32,30 @@
   "vars": {
     // The public origin Twilio calls back and Better Auth trusts. Set yours. Local dev overrides it in .dev.vars.
     "PUBLIC_URL": "https://talvuno.example.com",
-    "OIDC_BUTTON_LABEL": "Sign in with SSO"
+    "OIDC_BUTTON_LABEL": "Sign in with SSO",
+    // The AI Gateway voicemail transcription runs through. Every account has one named "default"; set yours.
+    "AI_GATEWAY_ID": "default"
   },
+
+  // Voicemail audio, under voicemail/<ownerId>/<callId>.<ext> (src/worker/lib/voicemail).
+  "r2_buckets": [{ "binding": "RECORDINGS", "bucket_name": "talvuno-recordings" }],
+
+  // Voicemail transcription: the recording callback enqueues { voicemailId }, the queue() handler transcribes.
+  "queues": {
+    "producers": [{ "binding": "TRANSCRIBE", "queue": "talvuno-transcribe" }],
+    "consumers": [
+      {
+        "queue": "talvuno-transcribe",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "dead_letter_queue": "talvuno-transcribe-dlq"
+      }
+    ]
+  },
+
+  // Workers AI for Whisper, always called through the AI Gateway named by AI_GATEWAY_ID.
+  "ai": { "binding": "AI" },
 
   "d1_databases": [
     {

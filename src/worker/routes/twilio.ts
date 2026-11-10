@@ -3,6 +3,7 @@ import { twilioSignature } from "../lib/twilio/signature";
 import type { AppEnv } from "../types";
 import { twilioSms } from "./twilio-sms";
 import { twilioVoice } from "./twilio-voice";
+import { twilioVoicemail } from "./twilio-voicemail";
 
 /**
  * Twilio webhooks (voice TwiML, call status, inbound SMS, message status). Mounted at /api/twilio, outside the
@@ -16,6 +17,7 @@ import { twilioVoice } from "./twilio-voice";
  *   POST /api/twilio/voice/outbound   TwiML App Voice URL (browser calls out)
  *   POST /api/twilio/voice/inbound    number's voice URL
  *   POST /api/twilio/voice/status     call status callback
+ *   POST /api/twilio/voice/voicemail  recording status callback of a voicemail <Record>
  *   POST /api/twilio/sms/inbound      number's messaging URL
  *   POST /api/twilio/sms/status       message status callback
  *
@@ -26,3 +28,4 @@ export const twilio = new Hono<AppEnv>();
 twilio.use("*", twilioSignature());
 twilio.route("/sms", twilioSms);
 twilio.route("/voice", twilioVoice);
+twilio.route("/voice/voicemail", twilioVoicemail);

@@ -28,6 +28,7 @@ flowchart TB
 - **Worker.** Serves the server-rendered pages and the Hono API. Server-side loaders call the API in-process, so a page render costs no extra network hop. It also handles Twilio webhooks and runs the cron job every 15 minutes.
 - **D1.** The database, reached through Drizzle ORM with versioned SQL migrations. Every table is scoped by `owner_id`. Provider SIDs for messages, calls and numbers carry unique constraints, which is what makes webhook handling idempotent.
 - **OwnerHub.** One Durable Object per owner. It holds the WebSocket of every open tab for live updates, and keeps the hourly send counters for the spend guards.
+- **R2, Queues and Workers AI.** Voicemail audio is kept in the `RECORDINGS` bucket. The `TRANSCRIBE` queue runs Whisper on Workers AI through AI Gateway and stores the transcript.
 - **Twilio.** Receives REST calls from the Worker, sends signed webhooks to it, and carries call audio to the browser.
 
 ## Stack
@@ -66,5 +67,6 @@ The short records of the foundation choices are in [docs/decisions.md](https://g
 | 8 | Foreground calls only, said plainly | A web app cannot ring a locked phone. The app says so on setup, the keypad and settings. |
 | 9 | English only, with right-to-left plumbing | Every string goes through i18next, and the layout uses start and end properties. |
 | 10 | Phone numbers are E.164 everywhere | One normal form for comparing and storing, and an empty country list by default. |
+| 11 | Voicemail audio in R2, transcripts through a queue | The audio leaves Twilio for our own bucket. Whisper runs from a queue with retries, so a failed transcript never blocks the message. |
 
 A decision that changes one of these adds a new record instead of editing the old one.

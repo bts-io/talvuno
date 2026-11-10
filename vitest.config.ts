@@ -15,6 +15,7 @@ const bindings = async () => ({
   TWILIO_API_KEY_SECRET: "test-api-key-secret",
   TWILIO_TWIML_APP_SID: "AP00000000000000000000000000000000",
   TWILIO_API_BASE: "https://twilio.mock",
+  AI_GATEWAY_ID: "default",
 });
 
 // Three projects: pure unit tests in Node, the Hono API and OwnerHub in workerd with a migrated D1, and the
@@ -27,6 +28,8 @@ export default defineConfig({
         plugins: [
           cloudflareTest(async () => ({
             wrangler: { configPath: "./wrangler.jsonc" },
+            // Workers AI only runs remotely; tests replace env.AI with a stub instead of signing in.
+            remoteBindings: false,
             main: "./src/worker/index.ts",
             miniflare: { bindings: await bindings() },
           })),
@@ -43,6 +46,7 @@ export default defineConfig({
         plugins: [
           cloudflareTest(async () => ({
             wrangler: { configPath: "./dist/server/wrangler.json" },
+            remoteBindings: false,
             miniflare: { bindings: await bindings() },
           })),
         ],

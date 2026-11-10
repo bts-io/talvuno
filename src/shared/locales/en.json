@@ -159,7 +159,8 @@
     "saveContact": "Save contact",
     "withheld": "Withheld number",
     "unknownCaller": "Unknown caller",
-    "justNow": "Just now"
+    "justNow": "Just now",
+    "voicemail": "Voicemail"
   },
   "settings": {
     "loading": "Loading",
@@ -261,6 +262,13 @@
       "ok": "Connected. Balance is reported in {{currency}}.",
       "okNoCurrency": "Connected.",
       "failed": "Twilio did not accept the connection: {{error}}"
+    },
+    "voicemail": {
+      "title": "Voicemail",
+      "intro": "Recordings and transcripts are deleted automatically after this many days.",
+      "retention": "Keep voicemail for (days)",
+      "hint": "0 keeps voicemail forever. At most {{max}} days.",
+      "forever": "Voicemail is kept until you delete it."
     }
   },
   "messages": {
@@ -383,5 +391,20 @@
       "callerIdNotOwned": "Twilio does not accept this caller ID. It must be a number you own or have verified.",
       "callFailed": "Twilio could not connect the call (error {{code}})."
     }
+  },
+  "voicemail": {
+    "search": "Search voicemail",
+    "empty": "No voicemail yet.",
+    "noMatch": "No voicemail matches.",
+    "loadFailed": "Voicemail could not be loaded.",
+    "unheard": "Not listened to yet",
+    "audioPending": "The recording is still on its way.",
+    "transcribing": "Transcribing",
+    "noSpeech": "No speech was heard in this message.",
+    "transcriptFailed": "The transcript could not be made.",
+    "retry": "Try again",
+    "delete": "Delete voicemail",
+    "deleteConfirm": "Delete the voicemail from {{name}}? The recording and its transcript are removed for good.",
+    "deleteFailed": "The voicemail could not be deleted. Try again."
   }
 }

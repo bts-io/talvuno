@@ -76,3 +76,14 @@ of the screens.
 Every number that enters the system, typed by a person or sent by Twilio, is normalized with libphonenumber-js
 (`src/lib/phone.ts`) before it is stored or compared. Calls and messages are only allowed to countries in the
 owner's allowlist, which starts empty, so a fresh install cannot run up international charges.
+
+## 11. Voicemail audio in R2, transcripts through a queue
+
+This changes decision 6 for one job. Voicemail recordings are copied from Twilio into our own R2 bucket and
+then deleted on Twilio, so the audio lives only where the owner controls it. The voicemail row is written
+before the download, and the Twilio copy is only deleted after the R2 copy exists, so a failed download keeps
+the message and the cron tries again. Transcription is slow and can fail on its own, which a webhook retry
+does not fit, so it runs from a Cloudflare Queue (`talvuno-transcribe`) with retries and backoff. Whisper runs
+on Workers AI through AI Gateway (`AI_GATEWAY_ID`). A transcript that still fails is marked failed and can be
+retried from Recents. The audio stays playable either way. A per-owner retention setting (default 90 days,
+0 for forever) is enforced by the cron.
