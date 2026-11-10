@@ -117,12 +117,40 @@ export function planCallUpdate(row: CallRow, event: CallEvent): Partial<CallRow>
   return Object.keys(patch).length ? patch : null;
 }
 
-/** A missed call: inbound, ended, never answered. */
-export const isMissed = (row: Pick<CallRow, "direction" | "status" | "answeredAt">) => isMissedCall(row);
+/**
+ * The outcome an inbound call gets when `patch` ends it: answered or missed, unless routing already set one
+ * (voicemail, declined, blocked). Null when the patch does not end an inbound call without an outcome.
+ */
+export function outcomeOnEnd(row: CallRow, patch: Partial<CallRow>): CallRow["outcome"] {
+  if (row.direction !== "inbound" || row.outcome || !patch.endedAt || row.endedAt) return null;
+  return (patch.answeredAt ?? row.answeredAt) ? "answered" : "missed";
+}
+
+/** A missed call: inbound, ended, never answered, not sent to voicemail, declined or blocked. */
+export const isMissed = (row: Pick<CallRow, "direction" | "status" | "answeredAt" | "outcome">) =>
+  isMissedCall(row);
 
 /** How a call party reads in a notification. */
 export const partyLabel = (party: string, contactName?: string | null) =>
   contactName || (isE164(party) ? formatPhone(party) : "Withheld number");
+
+/**
+ * The web push for a call waiting to be answered. High urgency so a sleeping phone wakes, kept on screen,
+ * tagged by call, held by the push service no longer than the call can ring. A tap opens the answer route.
+ */
+export const incomingCallPush = (
+  row: Pick<CallRow, "id" | "party" | "twilioCallSid">,
+  contactName: string | null,
+  ringSeconds: number,
+): LivePush => ({
+  title: "Incoming call",
+  body: partyLabel(row.party, contactName),
+  url: `/answer/${row.id}`,
+  tag: `call-${row.twilioCallSid}`,
+  requireInteraction: true,
+  urgency: "high",
+  ttl: ringSeconds,
+});
 
 /** The web push for a missed call. Tagged by call, so a repeat replaces the notice instead of adding one. */
 export const missedCallPush = (

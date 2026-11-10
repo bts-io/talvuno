@@ -21,6 +21,7 @@
       "!/assets/*",
       "!/icons/*",
       "!/brand/*",
+      "!/sounds/*",
       "!/favicon.ico",
       "!/apple-touch-icon.png",
       "!/manifest.webmanifest",

@@ -110,6 +110,26 @@ describe("push handler", () => {
     ]);
   });
 
+  it("keeps a ringing call notice on screen and vibrates", async () => {
+    const sw = loadWorker();
+    await sw.fire(
+      "push",
+      pushEvent({
+        title: "Incoming call",
+        body: "Ada",
+        url: "/answer/c1",
+        tag: "call-CA1",
+        requireInteraction: true,
+      }),
+    );
+    expect(sw.shown[0]?.options).toMatchObject({
+      tag: "call-CA1",
+      requireInteraction: true,
+      vibrate: [400, 200, 400, 200, 400],
+      data: { url: "/answer/c1" },
+    });
+  });
+
   it("always shows something, even for an empty or broken payload", async () => {
     const sw = loadWorker();
     await sw.fire("push", { data: null });

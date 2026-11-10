@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import {
   type CallEntry,
@@ -7,6 +7,7 @@ import {
   callListQuerySchema,
   isMissedCall,
   MISSED_STATUSES,
+  NOT_MISSED_OUTCOMES,
 } from "../../contracts/contacts";
 import { schema } from "../db";
 import { decodeCursor, encodeCursor } from "../lib/contacts";
@@ -36,6 +37,10 @@ callsRouter.get("/", zValidator("query", callListQuerySchema, validationHook), a
       eq(calls.direction, "inbound"),
       inArray(calls.status, [...MISSED_STATUSES]),
       isNull(calls.answeredAt),
+      or(
+        isNull(calls.outcome),
+        notInArray(calls.outcome, [...NOT_MISSED_OUTCOMES]),
+      ) as (typeof conds)[number],
     );
   }
   if (cursor) {
@@ -75,6 +80,7 @@ callsRouter.get("/", zValidator("query", callListQuerySchema, validationHook), a
     errorCode: call.errorCode,
     errorMessage: call.errorMessage,
     contactId: call.contactId,
+    outcome: call.outcome,
     contactName: linkedName ?? matchedName ?? null,
     missed: isMissedCall(call),
   }));

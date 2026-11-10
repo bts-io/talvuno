@@ -52,16 +52,22 @@ export type CallList = z.infer<typeof callListSchema>;
 /** An inbound call that ended in one of these was not answered. */
 export const MISSED_STATUSES = ["no-answer", "busy", "canceled", "failed"] as const;
 
+/** Outcomes that are never a missed call: the caller reached voicemail, was declined or was blocked. */
+export const NOT_MISSED_OUTCOMES = ["voicemail", "declined", "blocked"] as const;
+
 /**
- * A missed call: inbound, ended without being answered. The one definition for the recents list, the missed
- * filter and the missed call push. An answered inbound call always ends "completed" (the voice rules make
- * sure of that), so the unanswered ends are exactly MISSED_STATUSES with no answer time.
+ * A missed call: inbound, ended without being answered, and not sent to voicemail, declined or blocked on
+ * purpose. The one definition for the recents list, the missed filter and the missed call push. An answered
+ * inbound call always ends "completed" (the voice rules make sure of that), so the unanswered ends are
+ * exactly MISSED_STATUSES with no answer time.
  */
 export const isMissedCall = (call: {
   direction: string;
   status: string;
   answeredAt?: Date | number | null;
+  outcome?: string | null;
 }) =>
   call.direction === "inbound" &&
   (MISSED_STATUSES as readonly string[]).includes(call.status) &&
-  (call.answeredAt === null || call.answeredAt === undefined);
+  (call.answeredAt === null || call.answeredAt === undefined) &&
+  !(NOT_MISSED_OUTCOMES as readonly string[]).includes(call.outcome ?? "");

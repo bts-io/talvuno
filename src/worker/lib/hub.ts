@@ -13,13 +13,15 @@ export function hubFor(env: Env, ownerId: string) {
  *
  * When the event carries `push` and no tab was open to receive it, the owner's devices get a Web Push notice
  * instead. Pass `ctx` (for example `c.executionCtx`) to send it after the response; without it the push is
- * awaited. Either way it never throws.
+ * awaited. Either way it never throws. `opts.alwaysPush` sends the push even when a tab was open, for a
+ * ringing call: an open tab on one device says nothing about the owner's phone in a pocket.
  */
 export async function notifyOwner(
   env: Env,
   ownerId: string,
   event: LiveEvent,
   ctx?: Pick<ExecutionContext, "waitUntil">,
+  opts: { alwaysPush?: boolean } = {},
 ): Promise<number> {
   let parsed: LiveEvent;
   let reached = 0;
@@ -30,7 +32,7 @@ export async function notifyOwner(
     console.error("live notify failed", { type: event?.type, error: String(err) });
     return reached;
   }
-  if (parsed.push && reached === 0) {
+  if (parsed.push && (reached === 0 || opts.alwaysPush)) {
     const push = sendPushToOwner(env, ownerId, parsed.push);
     if (ctx) ctx.waitUntil(push);
     else await push;

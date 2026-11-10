@@ -344,5 +344,52 @@
       "callerIdNotOwned": "Twilio does not accept this caller ID. It must be a number you own or have verified.",
       "callFailed": "Twilio could not connect the call (error {{code}})."
     }
+  },
+  "routing": {
+    "defaultGreeting": "Sorry, no one can take your call right now. Please leave a message after the beep.",
+    "answering": "Connecting you to the caller",
+    "answerGone": "This call was answered on another device or has ended.",
+    "answerNeedsCalling": "Calling is not ready yet. Wait a moment or select Retry.",
+    "outcome": {
+      "voicemail": "Voicemail",
+      "declined": "Declined",
+      "blocked": "Blocked"
+    },
+    "hours": {
+      "title": "Business hours and do not disturb",
+      "intro": "Outside these hours, or while do not disturb is on, calls go straight to voicemail. Nothing rings and no notice is sent.",
+      "dnd": "Do not disturb",
+      "dndOn": "Do not disturb is on. Calls go straight to voicemail.",
+      "alwaysOpen": "Open at all times",
+      "useHours": "Only ring during opening hours",
+      "timeZone": "Time zone",
+      "opens": "Opens",
+      "closes": "Closes",
+      "closed": "Closed",
+      "openNow": "Open now",
+      "closedNow": "Closed now",
+      "invalid": "Each closing time must be after its opening time."
+    },
+    "voicemail": {
+      "title": "Voicemail and ring time",
+      "intro": "How long a call rings before it goes to voicemail, and what the caller hears first.",
+      "greeting": "Voicemail greeting",
+      "greetingHint": "Leave it empty to use the default greeting.",
+      "ringTime": "Ring time in seconds"
+    },
+    "blocked": {
+      "title": "Blocked numbers",
+      "intro": "Blocked callers are turned away before anything rings and never show as missed. Texts from blocked senders are not saved, shown or notified.",
+      "empty": "No numbers are blocked.",
+      "add": "Number to block",
+      "block": "Block",
+      "unblock": "Unblock",
+      "blockNumber": "Block this number",
+      "unblockNumber": "Unblock this number",
+      "isBlocked": "Blocked"
+    },
+    "save": "Save",
+    "saved": "Saved",
+    "noNumbers": "Add a phone number first."
   }
 }

@@ -22,6 +22,7 @@ import { messagesApi } from "./routes/messages";
 import { numbers } from "./routes/numbers";
 import { preferences } from "./routes/preferences";
 import { push } from "./routes/push";
+import { routing } from "./routes/routing";
 import { status } from "./routes/status";
 import { twilio } from "./routes/twilio";
 import { voice } from "./routes/voice";
@@ -76,6 +77,7 @@ app.route("/api/status", status);
 app.route("/api/messages", messagesApi);
 app.route("/api/twilio", twilio);
 app.route("/api/voice", voice);
+app.route("/api/routing", routing);
 
 app.notFound((c) => c.json({ error: "not_found", message: "Not found" }, 404));
 

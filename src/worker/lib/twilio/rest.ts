@@ -36,6 +36,8 @@ export interface TwilioRest {
   get<T = unknown>(path: string, query?: Query): Promise<T>;
   /** `signal` aborts the request, for example `AbortSignal.timeout(ms)`. */
   post<T = unknown>(path: string, form?: Form, options?: { signal?: AbortSignal }): Promise<T>;
+  /** Deletes a resource, for example "/Queues/QU....json". */
+  delete(path: string): Promise<void>;
   /** The account SID requests run under. */
   accountSid: string;
 }
@@ -106,6 +108,9 @@ export function twilioRest(env: Env): TwilioRest {
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: encodeForm(form),
       });
+    },
+    async delete(path: string) {
+      await send<void>(urlFor(path), { method: "DELETE" });
     },
   };
 }

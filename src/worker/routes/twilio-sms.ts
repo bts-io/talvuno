@@ -24,6 +24,7 @@ import {
   touchConversation,
   upsertConversation,
 } from "../lib/sms";
+import { isBlocked } from "../lib/voice/routing";
 import type { AppEnv } from "../types";
 
 export const twilioSms = new Hono<AppEnv>();
@@ -93,6 +94,11 @@ twilioSms.post("/inbound", async (c) => {
     .get();
   if (!number) {
     // Not one of ours (or released): nothing to store. Answer empty TwiML so Twilio does not retry.
+    await markProcessed(db, key);
+    return twiml();
+  }
+  // A blocked sender's text is dropped: nothing stored, shown or notified.
+  if (await isBlocked(db, number.ownerId, from)) {
     await markProcessed(db, key);
     return twiml();
   }
