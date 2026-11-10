@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { ForegroundCallNote } from "../components/foreground-call-note";
 import { NotificationsSettings } from "../components/notifications-settings";
 import { AccountSection } from "../components/settings/account-section";
+import { MissedCallTextSection } from "../components/settings/missed-call-text-section";
 import { NumbersSection } from "../components/settings/numbers-section";
+import { QuickRepliesSection } from "../components/settings/quick-replies-section";
 import { SafetySection } from "../components/settings/safety-section";
 import { SetupCheckSection } from "../components/settings/setup-check-section";
 
@@ -17,6 +19,8 @@ function SettingsPage() {
       <ForegroundCallNote />
       <NotificationsSettings />
       <NumbersSection />
+      <QuickRepliesSection />
+      <MissedCallTextSection />
       <SafetySection />
       <AccountSection />
       <SetupCheckSection />

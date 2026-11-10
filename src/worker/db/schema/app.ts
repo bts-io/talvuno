@@ -260,3 +260,54 @@ export const auditEvents = sqliteTable(
   },
   (t) => [index("audit_events_owner_created_idx").on(t.ownerId, t.createdAt)],
 );
+
+/** Saved short replies for the composer and "decline with text". Shown in `sort_order`, then creation order. */
+export const quickReplies = sqliteTable(
+  "quick_replies",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    text: text("text").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("quick_replies_owner_sort_idx").on(t.ownerId, t.sortOrder)],
+);
+
+/** One row per owner once the default quick replies were added, so deleting them all does not bring them back. */
+export const quickReplyState = sqliteTable("quick_reply_state", {
+  ownerId: text("owner_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  seededAt: integer("seeded_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+/** The automatic text after a missed call, per number. Off by default: a number without a row sends nothing. */
+export const missedCallSettings = sqliteTable("missed_call_settings", {
+  numberId: text("number_id")
+    .primaryKey()
+    .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+  ownerId: ownerId(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  text: text("text").notNull().default(""),
+  updatedAt: updatedAt(),
+});
+
+/** Which callers already got the missed-call text today (UTC day). The unique key makes "once a day" atomic. */
+export const missedCallTexts = sqliteTable(
+  "missed_call_texts",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    numberId: text("number_id")
+      .notNull()
+      .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+    caller: text("caller").notNull(),
+    day: text("day").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("missed_call_texts_number_caller_day_idx").on(t.numberId, t.caller, t.day)],
+);

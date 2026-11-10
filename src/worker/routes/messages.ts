@@ -22,21 +22,11 @@ import {
   sendSmsInputSchema,
   type ThreadMessage,
 } from "../../contracts/messages";
-import { nextMessageStatus } from "../../contracts/status";
 import { toE164 } from "../../lib/phone";
 import { contactNumbers, contacts, conversations, messages, phoneNumbers } from "../db/schema";
 import { ApiError } from "../lib/errors";
-import {
-  applyPendingStatuses,
-  likeEscape,
-  notify,
-  type TwilioMessage,
-  toThreadMessage,
-  touchConversation,
-  upsertConversation,
-} from "../lib/sms";
-import { assertCanContact } from "../lib/twilio/guards";
-import { TwilioApiError, TwilioNotConfiguredError, twilioRest } from "../lib/twilio/rest";
+import { deliverSms } from "../lib/send-sms";
+import { likeEscape, notify, toThreadMessage } from "../lib/sms";
 import { validationHook } from "../lib/validation";
 import type { AppEnv } from "../types";
 
@@ -145,106 +135,19 @@ messagesApi.post("/send", zValidator("json", sendSmsInputSchema, validationHook)
   if (!number) throw new ApiError(404, "number_not_found", "That number is not one of yours");
 
   const to = toE164(input.to) ?? input.to.trim();
-  await assertCanContact(c, ownerId, to, "sms");
-
-  const conversation = await upsertConversation(db, ownerId, number.id, to);
-  const createdAt = new Date();
-  const inserted = await db
-    .insert(messages)
-    .values({
-      ownerId,
-      conversationId: conversation.id,
-      direction: "outbound",
-      from: number.e164,
-      to,
-      body: input.body,
-      status: "queued",
-      clientId: input.clientId,
-      createdAt,
-    })
-    .onConflictDoNothing()
-    .returning()
-    .get();
-  if (!inserted) {
-    // Lost a race with the same clientId: the other request sends it.
-    const row = await db
-      .select()
-      .from(messages)
-      .where(and(eq(messages.ownerId, ownerId), eq(messages.clientId, input.clientId)))
-      .get();
-    if (!row) throw new ApiError(409, "conflict", "Try again");
-    return c.json({
-      message: toThreadMessage(row),
-      conversationId: row.conversationId,
-    } satisfies SendSmsResult);
-  }
-  await touchConversation(db, conversation.id, { createdAt, body: input.body, direction: "outbound" });
-
-  let row = inserted;
-  let sent: TwilioMessage | null = null;
-  try {
-    sent = await twilioRest(c.env).post<TwilioMessage>("/Messages.json", {
-      From: number.e164,
-      To: to,
-      Body: input.body,
-      StatusCallback: `${c.env.PUBLIC_URL.replace(/\/+$/, "")}/api/twilio/sms/status`,
-    });
-  } catch (err) {
-    const failure =
-      err instanceof TwilioApiError
-        ? { errorCode: err.code, errorMessage: err.message.slice(0, 500) }
-        : err instanceof TwilioNotConfiguredError
-          ? { errorCode: null, errorMessage: "Twilio is not configured on this deployment" }
-          : { errorCode: null, errorMessage: "Could not reach Twilio" };
-    if (!(err instanceof TwilioApiError))
-      console.error("sms send failed", { messageId: row.id, error: String(err) });
-    row =
-      (await db
-        .update(messages)
-        .set({ status: "failed", ...failure })
-        .where(eq(messages.id, row.id))
-        .returning()
-        .get()) ?? row;
-  }
-
-  if (sent) {
-    // Twilio accepted the message: a D1 failure here must not mark it failed.
-    try {
-      const status = nextMessageStatus("queued", parseStatus(sent.status) ?? "queued");
-      row =
-        (await db
-          .update(messages)
-          .set({ twilioSid: sent.sid, status: nextMessageStatus(row.status, status) })
-          .where(eq(messages.id, row.id))
-          .returning()
-          .get()) ?? row;
-      // A status callback may have arrived before we knew the SID.
-      row = (await applyPendingStatuses(db, sent.sid)) ?? row;
-    } catch (err) {
-      console.error("sms accepted by twilio but local update failed", {
-        messageId: row.id,
-        sid: sent.sid,
-        error: String(err),
-      });
-    }
-  }
-
-  await notify(
-    c.env,
+  const sent = await deliverSms(
+    { env: c.env, db, ctx: c.executionCtx },
     ownerId,
-    { type: "message", conversationId: conversation.id, messageId: row.id },
-    c.executionCtx,
+    number,
+    to,
+    input.body,
+    input.clientId,
   );
   return c.json(
-    { message: toThreadMessage(row), conversationId: conversation.id } satisfies SendSmsResult,
-    201,
+    { message: toThreadMessage(sent.row), conversationId: sent.conversationId } satisfies SendSmsResult,
+    sent.created ? 201 : 200,
   );
 });
-
-function parseStatus(value: string) {
-  const s = value?.toLowerCase();
-  return s === "accepted" || s === "queued" || s === "sending" || s === "sent" || s === "failed" ? s : null;
-}
 
 const listQuery = z.object({
   numberId: z.string().max(64).optional(),

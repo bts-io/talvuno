@@ -46,7 +46,7 @@ export type ActiveCall = {
   muted: boolean;
 };
 
-export type IncomingCall = { party: string; name: string | null };
+export type IncomingCall = { party: string; name: string | null; numberId: string | null };
 
 export type MicResult = "ok" | "denied" | "unavailable";
 
@@ -254,7 +254,11 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
         device.on("incoming", (call: VoiceCall) => {
           incomingRef.current = call;
           const party = call.parameters.From ?? "";
-          setIncoming({ party, name: call.customParameters.get("contactName") ?? null });
+          setIncoming({
+            party,
+            name: call.customParameters.get("contactName") ?? null,
+            numberId: call.customParameters.get("numberId") ?? null,
+          });
           const clear = () => {
             if (incomingRef.current === call) {
               incomingRef.current = null;
@@ -347,7 +351,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
     // The caller may have hung up while the servers were fetched.
     if (incomingRef.current !== call) return;
     incomingRef.current = null;
-    const info = incoming ?? { party: call.parameters.From ?? "", name: null };
+    const info = incoming ?? { party: call.parameters.From ?? "", name: null, numberId: null };
     setIncoming(null);
     track(call, { direction: "inbound", party: info.party, name: info.name }, "connecting");
     call.accept(acceptOptions(iceServers));

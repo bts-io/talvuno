@@ -24,6 +24,7 @@ import type { Db } from "../../db";
 import { schema } from "../../db";
 import { findContactByNumber } from "../contacts";
 import { notifyOwner } from "../hub";
+import { onMissedCall } from "../missed-call";
 import {
   type CallEvent,
   type CallRow,
@@ -73,6 +74,7 @@ export async function applyCallEvent(
   let push: LivePush | undefined;
   if (missedNow && opts.push !== false)
     push = missedCallPush(updated, updated.contactId ? await contactName(db, updated.contactId) : null);
+  if (missedNow) await onMissedCall(env, updated.ownerId, updated, opts.ctx);
   await notifyOwner(
     env,
     updated.ownerId,

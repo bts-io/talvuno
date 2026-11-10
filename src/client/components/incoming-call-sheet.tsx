@@ -1,6 +1,10 @@
 import { Phone, PhoneDisconnect } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatPhone, isE164 } from "../../lib/phone";
+import { failureText, newClientId, smsNumbersQuery, useSendMessage } from "../lib/messages";
+import { declineTextNumber, declineWithText, quickRepliesQuery } from "../lib/quick-replies";
 import { usePartyLabel } from "./active-call";
 import { ForegroundCallNote } from "./foreground-call-note";
 import { usePhone } from "./phone-provider";
@@ -13,7 +17,33 @@ export function IncomingCallSheet() {
   const { t } = useTranslation();
   const { incoming, accept, decline, error } = usePhone();
   const label = usePartyLabel(incoming?.party ?? "", incoming?.name ?? null);
+  const numbers = useQuery({ ...smsNumbersQuery(), enabled: Boolean(incoming) });
+  const replies = useQuery({ ...quickRepliesQuery(), enabled: Boolean(incoming) });
+  const send = useSendMessage();
+  const [listOpen, setListOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [textError, setTextError] = useState<string | null>(null);
   if (!incoming) return null;
+
+  // Only when the caller is a full number and the number they called can send texts.
+  const via = declineTextNumber(incoming, numbers.data);
+  const canText = via !== null && (replies.data?.length ?? 0) > 0;
+
+  const declineText = async (text: string) => {
+    if (!via || busy) return;
+    setBusy(true);
+    setTextError(null);
+    const result = await declineWithText(text, {
+      send: (body) =>
+        send.mutateAsync({
+          input: { numberId: via.id, to: incoming.party, body, from: via.e164 },
+          clientId: newClientId(),
+        }),
+      decline,
+    });
+    setBusy(false);
+    if (!result.ok) setTextError(failureText(t, result.error));
+  };
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 md:items-center">
@@ -54,6 +84,39 @@ export function IncomingCallSheet() {
             {t("voice.accept")}
           </button>
         </div>
+        {canText ? (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setListOpen((v) => !v)}
+              aria-expanded={listOpen}
+              className="w-full rounded-xl border border-slate-300 py-2.5 text-sm font-medium hover:bg-slate-100 dark:border-navy-700 dark:hover:bg-navy-800"
+            >
+              {t("voice.declineWithText")}
+            </button>
+            {listOpen ? (
+              <ul aria-label={t("voice.declineWithText")} className="mt-2 flex flex-col gap-1.5">
+                {replies.data!.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void declineText(r.text)}
+                      className="w-full rounded-lg bg-slate-100 px-3 py-2 text-start text-sm hover:bg-slate-200 disabled:opacity-50 dark:bg-navy-800 dark:hover:bg-navy-700"
+                    >
+                      {r.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {textError ? (
+              <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {textError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <ForegroundCallNote className="mt-4" />
       </div>
     </div>
