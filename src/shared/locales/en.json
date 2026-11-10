@@ -157,6 +157,7 @@
     "missedCall": "Missed",
     "callBack": "Call {{name}}",
     "saveContact": "Save contact",
+    "moreActions": "More actions for {{name}}",
     "withheld": "Withheld number",
     "unknownCaller": "Unknown caller",
     "justNow": "Just now"
