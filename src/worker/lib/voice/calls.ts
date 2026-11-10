@@ -2,20 +2,22 @@
  * Call rows and how Twilio's call events move them.
  *
  * Canonical SID: one `calls` row per call, keyed by the PARENT CallSid, the leg Twilio creates first and the
- * only SID known when our TwiML runs. For an outbound call that is the browser (client) leg; for an inbound
- * call it is the caller's PSTN leg. The leg we dial with <Dial> (the PSTN number for outbound, the browser
- * for inbound) is the child. Its status callbacks carry ParentCallSid and are applied to the parent's row,
- * so history shows one row per call with the result of the dialed leg (busy, no-answer, talk time).
+ * only SID known when our TwiML runs. For an outbound call that is the browser (client) leg. For an inbound
+ * call it is the caller's PSTN leg.
+ *
+ * Inbound calls do not ring devices through child legs. The caller waits in a Twilio Queue of their own, and
+ * a device answers by placing a call that dequeues them. That call's bridge moves the row to in-progress, and
+ * how the caller left the queue (answered, voicemail, declined, hung up) is recorded as the row's outcome.
  *
  * Which events move a row:
- * - the <Dial action> result (DialCallStatus): the dial's outcome, it closes the row.
- * - child leg callbacks: outbound, applied as they are. Inbound, Twilio rings every device registered with
- *   the owner's identity and each ring can be its own child leg, so only an answer (in-progress, completed)
- *   moves the row; a child that ends unanswered says nothing about the call.
- * - parent leg callbacks: only a terminal one, and only for inbound calls (the number's "call status
- *   changes" URL). It closes a row the child never closed, for example when the caller hangs up while it
- *   rings. Unanswered becomes "no-answer" (missed); answered becomes "completed". Outbound parent leg
- *   callbacks are recorded and ignored, because the browser leg's status says nothing about the PSTN result.
+ * - the <Dial action> result (DialCallStatus): the dial's outcome, it closes the row. Outbound calls only.
+ * - child leg callbacks: outbound, applied as they are, so history shows the result of the dialed number
+ *   (busy, no-answer, talk time).
+ * - the queue bridge (an inbound caller connected to a device): applied as an answer.
+ * - parent leg callbacks: only a terminal one, and only for inbound calls. It closes a row nothing else
+ *   closed, for example when the caller hangs up while waiting. Unanswered becomes "no-answer" (missed),
+ *   answered becomes "completed". Outbound parent leg callbacks are recorded and ignored, because the browser
+ *   leg's status says nothing about the PSTN result.
  * Every status goes through nextCallStatus, so replays and out-of-order callbacks never move a row back.
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
