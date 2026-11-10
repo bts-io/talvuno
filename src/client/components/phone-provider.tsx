@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 import type { IncomingCallInfo } from "../../contracts/routing";
-import { isTrailingTransportError, probeIce, superviseCall } from "../lib/call-health";
+import { isTrailingTransportError, superviseCall, webrtcBlocked } from "../lib/call-health";
 import { connectOptions, createIceServerStore } from "../lib/ice-servers";
 import {
   answerParams,
@@ -313,10 +313,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       // The same STUN and TURN servers the call will use. A browser that gathers no ICE candidate even with
       // TURN can never carry audio: say so instead of ringing the far phone.
       const iceServers = await iceStore.get();
-      if (
-        typeof RTCPeerConnection !== "undefined" &&
-        (await probeIce((config) => new RTCPeerConnection(config), iceServers)) === "blocked"
-      ) {
+      if (await webrtcBlocked(iceServers)) {
         setError("webrtcBlocked");
         return;
       }
@@ -393,7 +390,12 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
         setError(mic === "denied" ? "micDenied" : "micUnavailable");
         return;
       }
+      // Before claiming: a browser that cannot carry audio must leave the call for another device to answer.
       const iceServers = await iceStore.get();
+      if (await webrtcBlocked(iceServers)) {
+        setError("webrtcBlocked");
+        return;
+      }
       const known = waiting.find((c) => c.callId === callId);
       const party = info?.party ?? known?.party ?? "";
       const name = info?.name ?? known?.contactName ?? null;

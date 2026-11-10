@@ -177,6 +177,12 @@ export async function probeIce(
   return result === "blocked" && !hasTurn(iceServers) ? "unknown" : result;
 }
 
+/** True when this browser's WebRTC is blocked: the caller must not place or claim a call. Unknown goes ahead. */
+export async function webrtcBlocked(iceServers: IceServer[] | null): Promise<boolean> {
+  if (typeof RTCPeerConnection === "undefined") return false;
+  return (await probeIce((config) => new RTCPeerConnection(config), iceServers)) === "blocked";
+}
+
 async function gather(
   createPeerConnection: () => ProbePeerConnection,
   timers: Timers,

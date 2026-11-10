@@ -114,7 +114,11 @@ describe("phone provider wiring", () => {
     expect(src).toContain("device.connect(connectOptions(params, iceServers))");
     // Waiting calls are answered by a call of our own that names them, with the same ICE servers.
     expect(src).toContain("device.connect(connectOptions(answerParams(callId), iceServers))");
-    expect(src).toContain("probeIce((config) => new RTCPeerConnection(config), iceServers)");
+    // Placing and answering both probe before they claim anything.
+    expect(src.match(/await webrtcBlocked\(iceServers\)/g)).toHaveLength(2);
+    expect(src.indexOf("await webrtcBlocked(iceServers)", src.indexOf("answerOnce"))).toBeLessThan(
+      src.indexOf("device.connect(connectOptions(answerParams"),
+    );
     expect(src).not.toMatch(/\.accept\(\)/);
   });
 });
