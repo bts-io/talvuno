@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it, vi } from "vitest";
-import { openUrlFromMessage } from "../../src/client/lib/sw";
+import { openUrlFromMessage } from "../../src/client/lib/open-url";
 
 const source = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
 const ORIGIN = "https://talvuno.test";

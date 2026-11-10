@@ -1,9 +1,10 @@
 import { env } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cronJobs } from "../../src/worker/cron";
+import { createDb } from "../../src/worker/db";
 import { voiceIdentity } from "../../src/worker/lib/voice/identity";
 import { reconcileStuckCalls, STUCK_CALL_AGE_MS } from "../../src/worker/lib/voice/reconcile";
-import { DEFAULT_GREETING } from "../../src/worker/lib/voice/routing";
+import { DEFAULT_GREETING, quietPushNow } from "../../src/worker/lib/voice/routing";
 import { el, response, sayAndHangUp, text } from "../../src/worker/lib/voice/twiml";
 import { CALL_TIME_LIMIT_SECONDS, SPOKEN } from "../../src/worker/routes/twilio-voice";
 import { b64u, newReceiver, newVapid } from "../unit/webpush-decrypt";
@@ -601,6 +602,22 @@ describe("blocked callers, business hours and do not disturb", () => {
     expect(list.items).toMatchObject([{ missed: false, outcome: "blocked" }]);
     expect((await owner.get<{ items: unknown[] }>("/api/calls?filter=missed")).items).toEqual([]);
     expect(await pushes()).toHaveLength(0);
+  });
+
+  it("keeps pushes quiet during do not disturb and outside business hours only", async () => {
+    const { owner, numberId } = await setup();
+    const db = createDb(env.DB);
+    const noon = new Date("2026-11-09T12:00:00Z");
+    expect(await quietPushNow(db, owner.userId, numberId, noon)).toBe(false);
+    await owner.json("PUT", "/api/routing/dnd", { dnd: true });
+    expect(await quietPushNow(db, owner.userId, numberId, noon)).toBe(true);
+    await owner.json("PUT", "/api/routing/dnd", { dnd: false });
+    // 2026-11-09 is a Monday (day 1): open 09:00 to 17:00 UTC.
+    await owner.json("PUT", `/api/routing/numbers/${numberId}`, {
+      hours: { timeZone: "UTC", days: [{ day: 1, open: "09:00", close: "17:00" }] },
+    });
+    expect(await quietPushNow(db, owner.userId, numberId, noon)).toBe(false);
+    expect(await quietPushNow(db, owner.userId, numberId, new Date("2026-11-09T20:00:00Z"))).toBe(true);
   });
 
   it("rings again once the caller is unblocked", async () => {

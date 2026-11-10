@@ -5,6 +5,7 @@ import {
   RING_CYCLE_SECONDS,
   ringingCall,
   ringSchedule,
+  showIncomingSheet,
 } from "../../src/client/lib/incoming-state";
 import { keysForEvent, parseLiveFrame } from "../../src/client/lib/live";
 
@@ -51,5 +52,17 @@ describe("ringtone cadence", () => {
     expect(tones[1]?.on).toBeCloseTo(10.6);
     expect(tones[2]?.on).toBeCloseTo(10 + RING_CYCLE_SECONDS);
     for (const t of tones) expect(t.off).toBeGreaterThan(t.on);
+  });
+});
+
+describe("incoming sheet and do not disturb", () => {
+  it("never shows while do not disturb is on", () => {
+    expect(showIncomingSheet({ incoming: { callId: "c1" }, active: null, dnd: false })).toBe(true);
+    expect(showIncomingSheet({ incoming: { callId: "c1" }, active: null, dnd: true })).toBe(false);
+  });
+
+  it("stays hidden with no waiting call or a call in progress", () => {
+    expect(showIncomingSheet({ incoming: null, active: null, dnd: false })).toBe(false);
+    expect(showIncomingSheet({ incoming: { callId: "c1" }, active: {}, dnd: false })).toBe(false);
   });
 });

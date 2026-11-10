@@ -14,9 +14,10 @@ import { useTranslation } from "react-i18next";
 import { useLive } from "../hooks/use-live";
 import { authClient } from "../lib/auth-client";
 import { clearAllDrafts } from "../lib/drafts";
+import { openUrlFromMessage } from "../lib/open-url";
 import { disablePush } from "../lib/push";
 import { cleanupBeforeSignOut } from "../lib/sign-out-cleanup";
-import { openUrlFromMessage } from "../lib/sw";
+import { DndToggle } from "./dnd-toggle";
 import { FirstRunBanner } from "./first-run-banner";
 import { PhoneProvider } from "./phone-provider";
 
@@ -93,6 +94,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="mt-auto flex flex-col gap-2 px-2 text-sm">
+          <DndToggle />
           <LiveBadge state={live} />
           <button
             onClick={signOut}

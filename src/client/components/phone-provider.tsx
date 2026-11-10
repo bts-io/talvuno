@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 import type { IncomingCallInfo } from "../../contracts/routing";
+import { useDnd } from "../hooks/use-routing";
 import { isTrailingTransportError, superviseCall, webrtcBlocked } from "../lib/call-health";
 import { connectOptions, createIceServerStore } from "../lib/ice-servers";
 import {
@@ -32,6 +33,7 @@ import {
   fetchIncoming,
   onIncoming,
   ringingCall,
+  showIncomingSheet,
   startRingtone,
 } from "../lib/incoming";
 import { onCallFailure, queryKeys } from "../lib/live";
@@ -372,7 +374,9 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   );
 
   // The ringtone plays while the sheet shows. Waiting calls do not ring the device, so the SDK's sound never plays.
-  const ringtoneFor = incoming && !active ? incoming.callId : null;
+  const { dnd } = useDnd();
+  const sheetShows = showIncomingSheet({ incoming, active, dnd });
+  const ringtoneFor = sheetShows && incoming ? incoming.callId : null;
   useEffect(() => (ringtoneFor ? startRingtone() : undefined), [ringtoneFor]);
 
   const answerOnce = useCallback(
@@ -472,7 +476,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   return (
     <PhoneContext.Provider value={value}>
       {children}
-      {incoming && !active ? <IncomingCallSheet /> : null}
+      {sheetShows ? <IncomingCallSheet /> : null}
       {active ? <ActiveCallScreen /> : null}
     </PhoneContext.Provider>
   );

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { DndToggle } from "../components/dnd-toggle";
 import { ForegroundCallNote } from "../components/foreground-call-note";
 import { NotificationsSettings } from "../components/notifications-settings";
 import { AccountSection } from "../components/settings/account-section";
@@ -17,6 +18,7 @@ function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-8">
       <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
+      <DndToggle className="md:hidden" />
       <ForegroundCallNote />
       <NotificationsSettings />
       <NumbersSection />

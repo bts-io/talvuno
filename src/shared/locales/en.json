@@ -354,6 +354,10 @@
       "declined": "Declined",
       "blocked": "Blocked"
     },
+    "dndState": {
+      "on": "On",
+      "off": "Off"
+    },
     "hours": {
       "title": "Business hours and do not disturb",
       "intro": "Outside these hours, or while do not disturb is on, calls go straight to voicemail. Nothing rings and no notice is sent.",
