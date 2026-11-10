@@ -487,7 +487,7 @@ describe("answering a waiting call", () => {
     const xml = await answer(from, row!.id);
     expect(xml).toBe(
       response(
-        `<Dial timeLimit="${CALL_TIME_LIMIT_SECONDS}"><Queue url="https://talvuno.test/api/twilio/voice/queue-bridge" method="POST">${row!.queue_name}</Queue></Dial>`,
+        `<Dial timeLimit="${CALL_TIME_LIMIT_SECONDS}" action="https://talvuno.test/api/twilio/voice/hold/owner" method="POST"><Queue url="https://talvuno.test/api/twilio/voice/queue-bridge" method="POST">${row!.queue_name}</Queue></Dial>`,
       ),
     );
     // The answering leg is not a call of its own in history.

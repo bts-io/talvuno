@@ -1,5 +1,6 @@
 /** Contracts for the voicemail API (/api/voicemails). */
 import { z } from "zod";
+import { aiSummarySchema } from "./ai-summary";
 import { callerSchema, idSchema } from "./index";
 
 export const TRANSCRIPT_STATUSES = ["pending", "done", "failed"] as const;
@@ -26,6 +27,8 @@ export const voicemailSchema = z.object({
   audioReady: z.boolean(),
   transcript: z.string().nullable(),
   transcriptStatus: transcriptStatusSchema,
+  /** The AI summary once there is one. Null while pending, when it failed or when summaries are off. */
+  aiSummary: aiSummarySchema.nullable(),
   createdAt: z.number().int().nonnegative(),
   listenedAt: z.number().int().nonnegative().nullable(),
 });

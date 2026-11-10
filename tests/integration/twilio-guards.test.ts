@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../../src/worker/db";
 import { ApiError } from "../../src/worker/lib/errors";
-import { assertCanContact } from "../../src/worker/lib/twilio/guards";
+import { assertCanContact, assertDestinationAllowed } from "../../src/worker/lib/twilio/guards";
 import { createOwner, resetDb } from "./helpers";
 
 beforeEach(resetDb);
@@ -102,5 +102,39 @@ describe("assertCanContact", () => {
     const { userId } = await createOwner();
     await setPrefs(userId, ["US"], 0, 0);
     expect((await refusal(assertCanContact(ctx(), userId, US, "sms"))).status).toBe(429);
+  });
+});
+
+describe("assertDestinationAllowed", () => {
+  it("runs the destination checks and refuses with the same codes", async () => {
+    const { userId } = await createOwner();
+    expect(await refusal(assertDestinationAllowed(ctx(), userId, US))).toEqual({
+      status: 403,
+      code: "country_not_allowed",
+    });
+    await setPrefs(userId, ["US"]);
+    await expect(assertDestinationAllowed(ctx(), userId, US)).resolves.toBeDefined();
+    expect(await refusal(assertDestinationAllowed(ctx(), userId, UK))).toEqual({
+      status: 403,
+      code: "country_not_allowed",
+    });
+    expect(await refusal(assertDestinationAllowed(ctx(), userId, "12345"))).toEqual({
+      status: 400,
+      code: "invalid_number",
+    });
+    expect(await refusal(assertDestinationAllowed(ctx(), userId, "+19005550123"))).toEqual({
+      status: 403,
+      code: "premium_rate",
+    });
+  });
+
+  it("never spends from the hourly budget, and passes even when the budget is zero", async () => {
+    const { userId } = await createOwner();
+    await setPrefs(userId, ["US"], 1, 1);
+    for (let i = 0; i < 5; i++) await assertDestinationAllowed(ctx(), userId, US);
+    await expect(assertCanContact(ctx(), userId, US, "call")).resolves.toBeUndefined();
+    expect((await refusal(assertCanContact(ctx(), userId, US, "call"))).status).toBe(429);
+    await setPrefs(userId, ["US"], 0, 0);
+    await expect(assertDestinationAllowed(ctx(), userId, US)).resolves.toBeDefined();
   });
 });

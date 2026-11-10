@@ -21,6 +21,7 @@ export function keysForEvent(event: LiveEvent): QueryKey[] {
       return [queryKeys.conversations];
     case "call":
     case "incoming":
+    case "recording":
       return [queryKeys.calls];
     case "voicemail":
       return [queryKeys.voicemails];

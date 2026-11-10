@@ -59,6 +59,8 @@ Never put these in `wrangler.jsonc` or in version control. In production, set ea
 
 Optional single sign-on adds `OIDC_DISCOVERY_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `OIDC_BUTTON_LABEL`. See [Single sign-on](../single-sign-on/).
 
+`SOURCE_URL` is a plain var in `wrangler.jsonc` and defaults to `https://github.com/bts-io/talvuno`. It is the target of the "Source code" link in Settings. If you modify Talvuno and run it for other people, point it at your fork (AGPL-3.0 section 13).
+
 Two more settings exist. `TWILIO_API_BASE` is for tests and local mocks only, so leave it unset. `CSP_REPORT_ONLY` is explained under [Security](../security/).
 
 :::tip

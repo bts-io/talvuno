@@ -1,12 +1,14 @@
 /**
  * Cron sweep for Twilio Queues the call flow left behind. Each inbound call gets its own queue (`tq_...`),
- * deleted when the caller leaves it, but a missed webhook would keep it forever. This lists the account's
- * queues and deletes the empty, old, `tq_` ones. It never throws: a failure is logged and the next run tries
+ * and each hold its own (`th_...`, lib/voice/hold.ts). Both are
+ * deleted when the caller leaves them, but a missed webhook would keep them forever. This lists the account's
+ * queues and deletes the empty, old ones with our prefixes. It never throws: a failure is logged and the next run tries
  * again.
  */
 import { TwilioNotConfiguredError, twilioRest } from "../twilio/rest";
 
-export const QUEUE_PREFIX = "tq_";
+/** Queue name prefixes this app creates: `tq_` for inbound callers waiting, `th_` for held parties. */
+export const QUEUE_PREFIXES = ["tq_", "th_"] as const;
 /** An empty queue younger than this may belong to a call that is only now being placed in it. */
 export const QUEUE_SWEEP_AGE_MS = 10 * 60 * 1000;
 const PAGE_SIZE = 100;
@@ -38,7 +40,8 @@ export async function sweepLeftoverQueues(
       });
       for (const q of body.queues ?? []) {
         if (!q.sid || !/^QU[0-9a-f]{32}$/i.test(q.sid)) continue;
-        if (!q.friendly_name?.startsWith(QUEUE_PREFIX) || q.current_size !== 0) continue;
+        const name = q.friendly_name ?? "";
+        if (!QUEUE_PREFIXES.some((p) => name.startsWith(p)) || q.current_size !== 0) continue;
         const created = q.date_created ? Date.parse(q.date_created) : Number.NaN;
         if (!Number.isFinite(created) || now - created < QUEUE_SWEEP_AGE_MS) continue;
         try {

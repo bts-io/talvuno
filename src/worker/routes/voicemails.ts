@@ -10,7 +10,7 @@
  *   DELETE /:id               deletes the audio and the row
  */
 import { zValidator } from "@hono/zod-validator";
-import { and, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import {
@@ -21,6 +21,7 @@ import {
   voicemailSettingsSchema,
 } from "../../contracts/voicemail";
 import { schema } from "../db";
+import { summariesEnabled } from "../lib/ai/summary";
 import { decodeCursor, encodeCursor } from "../lib/contacts";
 import { ApiError } from "../lib/errors";
 import { notifyOwner } from "../lib/hub";
@@ -28,7 +29,7 @@ import { validationHook } from "../lib/validation";
 import { deleteVoicemail, retentionDays, retryTranscription } from "../lib/voicemail";
 import type { AppEnv } from "../types";
 
-const { voicemails, voicemailSettings } = schema;
+const { aiSummaries, voicemails, voicemailSettings } = schema;
 
 export const voicemailsRouter = new Hono<AppEnv>();
 
@@ -67,9 +68,21 @@ voicemailsRouter.get("/", zValidator("query", voicemailListQuerySchema, validati
     where n.e164 = "voicemails"."from" and c.owner_id = "voicemails"."owner_id"
     order by c.sort_key, c.id limit 1)`;
 
+  // With summaries off no summary is shown, including ones made while they were on.
+  const showSummaries = await summariesEnabled(db, ownerId);
   const rows = await db
-    .select({ vm: voicemails, contactName: name })
+    .select({ vm: voicemails, contactName: name, ai: aiSummaries })
     .from(voicemails)
+    .leftJoin(
+      aiSummaries,
+      and(
+        eq(aiSummaries.ownerId, voicemails.ownerId),
+        eq(aiSummaries.sourceKind, "voicemail"),
+        eq(aiSummaries.sourceId, voicemails.id),
+        inArray(aiSummaries.status, ["done", "empty"]),
+        showSummaries ? undefined : sql`0`,
+      ),
+    )
     .where(and(...conds))
     .orderBy(desc(voicemails.createdAt), desc(voicemails.id))
     .limit(limit + 1);
@@ -80,7 +93,7 @@ voicemailsRouter.get("/", zValidator("query", voicemailListQuerySchema, validati
     .get();
 
   const page = rows.slice(0, limit);
-  const items: Voicemail[] = page.map(({ vm, contactName }) => ({
+  const items: Voicemail[] = page.map(({ vm, contactName, ai }) => ({
     id: vm.id,
     callId: vm.callId,
     numberId: vm.numberId,
@@ -90,6 +103,10 @@ voicemailsRouter.get("/", zValidator("query", voicemailListQuerySchema, validati
     audioReady: Boolean(vm.r2Key),
     transcript: vm.transcript,
     transcriptStatus: vm.transcriptStatus,
+    aiSummary:
+      ai?.summary != null
+        ? { summary: ai.summary, actionItems: ai.actionItems ?? [], oneLiner: ai.oneLiner }
+        : null,
     createdAt: vm.createdAt.getTime(),
     listenedAt: vm.listenedAt?.getTime() ?? null,
   }));
@@ -159,15 +176,22 @@ export function parseRange(header: string | undefined, size: number): Range | nu
   return { offset: start, length: end - start + 1 };
 }
 
-voicemailsRouter.get("/:id/audio", async (c) => {
-  const row = await ownVoicemail(c);
-  if (!row.r2Key) throw new ApiError(409, "not_ready", "The audio is not stored yet");
-  const head = await c.env.RECORDINGS.head(row.r2Key);
+/**
+ * Serves stored audio from R2 with Range support so the player can seek, never cached. Shared by voicemail
+ * and call recordings.
+ */
+export async function audioResponse(
+  c: Context<AppEnv>,
+  r2Key: string | null,
+  contentType: string | null,
+): Promise<Response> {
+  if (!r2Key) throw new ApiError(409, "not_ready", "The audio is not stored yet");
+  const head = await c.env.RECORDINGS.head(r2Key);
   if (!head) throw new ApiError(404, "not_found", "Audio not found");
   const size = head.size;
   const range = parseRange(c.req.header("range"), size);
   const headers = new Headers({
-    "content-type": row.contentType ?? head.httpMetadata?.contentType ?? "audio/mpeg",
+    "content-type": contentType ?? head.httpMetadata?.contentType ?? "audio/mpeg",
     "cache-control": "private, no-store",
     "accept-ranges": "bytes",
     "x-content-type-options": "nosniff",
@@ -177,7 +201,7 @@ voicemailsRouter.get("/:id/audio", async (c) => {
     headers.set("content-range", `bytes */${size}`);
     return new Response(null, { status: 416, headers });
   }
-  const object = await c.env.RECORDINGS.get(row.r2Key, range ? { range } : {});
+  const object = await c.env.RECORDINGS.get(r2Key, range ? { range } : {});
   if (!object) throw new ApiError(404, "not_found", "Audio not found");
   if (range) {
     headers.set("content-range", `bytes ${range.offset}-${range.offset + range.length - 1}/${size}`);
@@ -186,6 +210,11 @@ voicemailsRouter.get("/:id/audio", async (c) => {
   }
   headers.set("content-length", String(size));
   return new Response(object.body, { status: 200, headers });
+}
+
+voicemailsRouter.get("/:id/audio", async (c) => {
+  const row = await ownVoicemail(c);
+  return audioResponse(c, row.r2Key, row.contentType);
 });
 
 voicemailsRouter.post("/:id/listened", async (c) => {

@@ -67,7 +67,11 @@ export const setupStatusSchema = z.object({ needed: z.boolean() });
 export type SetupStatus = z.infer<typeof setupStatusSchema>;
 
 /** Public sign-in settings: whether to show the SSO button and what it says. */
-export const authConfigSchema = z.object({ oidc: z.boolean(), oidcLabel: z.string() });
+export const authConfigSchema = z.object({
+  oidc: z.boolean(),
+  oidcLabel: z.string(),
+  sourceUrl: z.string(),
+});
 export type AuthConfig = z.infer<typeof authConfigSchema>;
 
 export const meSchema = z.object({
@@ -185,6 +189,13 @@ export const callSchema = z.object({
   contactId: idSchema.nullable(),
   /** How an inbound call ended (answered, missed, voicemail, declined, blocked), null while live or outbound. */
   outcome: callOutcomeSchema.nullable(),
+  /** When the other party was put on hold, while they are. */
+  onHoldAt: timestamp.nullable(),
+  /** The number (E.164) the owner handed the call to, if they did. */
+  transferredTo: z.string().nullable(),
+  /** How the transfer leg ended (completed, busy, no-answer...) and its talk time, once it has. */
+  transferStatus: callStatusSchema.nullable(),
+  transferDuration: z.number().int().nonnegative().nullable(),
 });
 export type Call = z.infer<typeof callSchema>;
 
@@ -267,6 +278,13 @@ export const liveEventSchema = z.discriminatedUnion("type", [
     type: z.literal("voicemail"),
     voicemailId: idSchema,
     callId: idSchema.optional(),
+    push: livePushSchema.optional(),
+  }),
+  /** A call recording was stored, transcribed or deleted. */
+  z.object({
+    type: z.literal("recording"),
+    callId: idSchema,
+    recordingId: idSchema,
     push: livePushSchema.optional(),
   }),
   /**

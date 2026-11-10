@@ -1,4 +1,4 @@
-import { Archive, MagnifyingGlass, NotePencil, PushPin } from "@phosphor-icons/react";
+import { Archive, Clock, MagnifyingGlass, NotePencil, PushPin } from "@phosphor-icons/react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { clsx } from "clsx";
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import type { ConversationListItem, SearchResult } from "../../contracts/messages";
 import { formatPhone } from "../../lib/phone";
 import { useLongPress } from "../components/row-menu";
+import { ScheduledTexts } from "../components/scheduled-texts";
 import { ThreadRowMenu } from "../components/thread-actions";
 import { conversationsQuery, displayAddress, searchQuery, smsNumbersQuery } from "../lib/messages";
 
@@ -52,6 +53,7 @@ function ThreadList() {
   const q = useDeferredValue(search.trim());
   const numbers = useQuery(smsNumbersQuery());
   const [archived, setArchived] = useState(false);
+  const [onlyScheduled, setOnlyScheduled] = useState(false);
   const list = useInfiniteQuery(conversationsQuery(numberId, "", archived));
   const found = useQuery(searchQuery(q));
   const items = list.data?.pages.flatMap((p) => p.items) ?? [];
@@ -65,6 +67,19 @@ function ThreadList() {
             {archived ? t("messages.archivedTitle") : t("messages.title")}
           </h1>
           <div className="flex items-center">
+            <button
+              type="button"
+              onClick={() => setOnlyScheduled((v) => !v)}
+              aria-pressed={onlyScheduled}
+              className={clsx(
+                "rounded-full p-2 hover:bg-brand-blue/10",
+                onlyScheduled ? "bg-brand-blue/10 text-brand-blue" : "text-slate-500",
+              )}
+              aria-label={t("scheduled.filter")}
+              title={t("scheduled.filter")}
+            >
+              <Clock aria-hidden className="size-6" />
+            </button>
             <button
               type="button"
               onClick={() => setArchived((v) => !v)}
@@ -122,7 +137,9 @@ function ThreadList() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        {q ? (
+        {onlyScheduled ? (
+          <ScheduledTexts showRecipient />
+        ) : q ? (
           <SearchResults q={q} data={found.data} loading={found.isPending} />
         ) : list.isPending ? (
           <p className="p-4 text-slate-500">{t("messages.loading")}</p>
@@ -137,7 +154,7 @@ function ThreadList() {
             ))}
           </ul>
         )}
-        {!q && list.hasNextPage && (
+        {!q && !onlyScheduled && list.hasNextPage && (
           <button
             type="button"
             onClick={() => list.fetchNextPage()}

@@ -35,13 +35,17 @@
     "PUBLIC_URL": "https://talvuno.example.com",
     "OIDC_BUTTON_LABEL": "Sign in with SSO",
     // The AI Gateway voicemail transcription runs through. Every account has one named "default"; set yours.
-    "AI_GATEWAY_ID": "default"
+    "AI_GATEWAY_ID": "default",
+    // Where the Settings "Source code" link points (AGPL-3.0 section 13). If you run a modified copy, set your own fork.
+    "SOURCE_URL": "https://github.com/bts-io/talvuno"
   },
 
   // Voicemail audio, under voicemail/<ownerId>/<callId>.<ext> (src/worker/lib/voicemail).
   "r2_buckets": [{ "binding": "RECORDINGS", "bucket_name": "talvuno-recordings" }],
 
-  // Voicemail transcription: the recording callback enqueues { voicemailId }, the queue() handler transcribes.
+  // Voicemail and call recording transcription: the recording callbacks enqueue { kind, id }, the queue()
+  // handler transcribes. A saved transcript enqueues a summary job ({ type: "summary" }) on the same queue
+  // (src/worker/lib/ai).
   "queues": {
     "producers": [{ "binding": "TRANSCRIBE", "queue": "talvuno-transcribe" }],
     "consumers": [
@@ -55,7 +59,7 @@
     ]
   },
 
-  // Workers AI for Whisper, always called through the AI Gateway named by AI_GATEWAY_ID.
+  // Workers AI for Whisper and transcript summaries, always called through the AI Gateway named by AI_GATEWAY_ID.
   "ai": { "binding": "AI" },
 
   "d1_databases": [

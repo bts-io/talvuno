@@ -29,8 +29,11 @@ describe("migration 0000", () => {
     expect(results.map((r) => r.name).sort()).toEqual(
       [
         "account",
+        "ai_summaries",
+        "ai_summary_settings",
         "audit_events",
         "blocked_numbers",
+        "call_recordings",
         "calls",
         "contact_numbers",
         "contacts",
@@ -38,6 +41,8 @@ describe("migration 0000", () => {
         "messages",
         "missed_call_settings",
         "missed_call_texts",
+        "number_menus",
+        "number_recording",
         "number_routing",
         "owner_claim",
         "phone_numbers",
@@ -46,6 +51,7 @@ describe("migration 0000", () => {
         "quick_reply_state",
         "rate_limit",
         "routing_settings",
+        "scheduled_messages",
         "session",
         "spend_events",
         "user",

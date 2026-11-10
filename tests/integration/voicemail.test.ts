@@ -233,7 +233,7 @@ describe("recording status callback", () => {
     expect(seen.filter((s) => s.method === "DELETE").map((s) => s.url)).toEqual([
       `${TWILIO}/Recordings/${recordingSid}.json`,
     ]);
-    expect(sent).toEqual([{ voicemailId: row!.id }]);
+    expect(sent).toEqual([{ kind: "voicemail", id: row!.id }]);
     expect(numberId).toBeTruthy();
   });
 
@@ -287,7 +287,7 @@ describe("recording status callback", () => {
     expect(row!.r2_key).toBeTruthy();
     expect(row!.twilio_deleted_at).not.toBeNull();
     expect(row!.store_error).toBeNull();
-    expect(sent).toEqual([{ voicemailId: row!.id }]);
+    expect(sent).toEqual([{ kind: "voicemail", id: row!.id }]);
   });
 
   it("retries the Twilio delete from the cron when it failed", async () => {
@@ -454,7 +454,7 @@ describe("transcription consumer", () => {
     // And the owner can queue it again.
     sent = [];
     expect((await owner.fetch(`/api/voicemails/${row.id}/transcribe`, { method: "POST" })).status).toBe(202);
-    expect(sent).toEqual([{ voicemailId: row.id }]);
+    expect(sent).toEqual([{ kind: "voicemail", id: row.id }]);
     expect((await rows())[0]!.transcript_status).toBe("pending");
     expect((await owner.fetch(`/api/voicemails/${row.id}/transcribe`, { method: "POST" })).status).toBe(409);
   });

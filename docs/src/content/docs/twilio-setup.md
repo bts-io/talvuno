@@ -22,7 +22,10 @@ Browser calls go out through a TwiML App.
 
 1. In the Console, open Voice, then TwiML Apps, and create an app.
 2. Set its Voice request URL to `${PUBLIC_URL}/api/twilio/voice/outbound`, with HTTP POST.
-3. Put the app's SID (it starts with `AP`) in `TWILIO_TWIML_APP_SID`.
+3. Set its Voice status callback URL to `${PUBLIC_URL}/api/twilio/voice/status`, with HTTP POST. When a
+   browser leaves a call while the other party is on hold, this is how Talvuno learns of it if the browser
+   could not say so itself.
+4. Put the app's SID (it starts with `AP`) in `TWILIO_TWIML_APP_SID`.
 
 ## 3. Number webhooks
 
@@ -43,6 +46,7 @@ All the webhooks in one place:
 | Webhook | URL |
 | --- | --- |
 | TwiML App Voice URL (outgoing calls) | `${PUBLIC_URL}/api/twilio/voice/outbound` |
+| TwiML App Voice status callback | `${PUBLIC_URL}/api/twilio/voice/status` |
 | Number voice URL (incoming calls) | `${PUBLIC_URL}/api/twilio/voice/inbound` |
 | Call status callback | `${PUBLIC_URL}/api/twilio/voice/status` |
 | Number messaging URL (incoming SMS) | `${PUBLIC_URL}/api/twilio/sms/inbound` |

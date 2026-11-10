@@ -93,7 +93,7 @@ async function fetch(request: Request, env: Env, ctx: ExecutionContext): Promise
   return out;
 }
 
-/** The TRANSCRIBE queue consumer (voicemail transcripts). */
+/** The TRANSCRIBE queue consumer (voicemail and call recording transcripts). */
 const queue: ExportedHandlerQueueHandler<Env> = (batch, env) => handleTranscribeBatch(batch, env);
 
 export default { fetch, scheduled, queue } satisfies ExportedHandler<Env>;

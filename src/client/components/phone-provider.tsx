@@ -23,6 +23,7 @@ import {
 } from "react";
 import type { IncomingCallInfo } from "../../contracts/routing";
 import { useDnd } from "../hooks/use-routing";
+import { type CallControlAction, callControl } from "../lib/call-control";
 import { isTrailingTransportError, superviseCall, webrtcBlocked } from "../lib/call-health";
 import { connectOptions, createIceServerStore } from "../lib/ice-servers";
 import {
@@ -62,6 +63,10 @@ export type ActiveCall = {
   /** When the call was answered (epoch ms), for the timer. */
   answeredAt: number | null;
   muted: boolean;
+  /** This device's own leg (Twilio's CallSid), once Twilio has answered the signaling. */
+  callSid: string | null;
+  /** The other party is on hold (this browser stays connected to silence). */
+  held: boolean;
 };
 
 /** A call waiting for an answer. `numberId` is the number it came in on. */
@@ -92,6 +97,8 @@ type Phone = {
   hangUp: () => void;
   toggleMute: () => void;
   sendDigits: (digits: string) => void;
+  /** Holds, resumes or transfers the call in progress. Throws the API error when the Worker refuses. */
+  controlCall: (action: CallControlAction, to?: string) => Promise<void>;
   requestMic: () => Promise<MicResult>;
 };
 
@@ -197,9 +204,13 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
 
   /** Follows one call's events into `active`, and clears it when the call ends. */
   const track = useCallback(
-    (call: VoiceCall, base: Omit<ActiveCall, "state" | "answeredAt" | "muted">, state: CallState) => {
+    (
+      call: VoiceCall,
+      base: Omit<ActiveCall, "state" | "answeredAt" | "muted" | "callSid" | "held">,
+      state: CallState,
+    ) => {
       callRef.current = call;
-      setActive({ ...base, state, answeredAt: null, muted: false });
+      setActive({ ...base, state, answeredAt: null, muted: false, callSid: null, held: false });
       const patch = (p: Partial<ActiveCall>) =>
         setActive((a) => (a && callRef.current === call ? { ...a, ...p } : a));
       // An outgoing call learns its CallSid once Twilio answers the signaling; keep it for the failure banner.
@@ -211,7 +222,9 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
         call.on(event, remember);
       remember();
       call.on("ringing", () => patch({ state: "ringing" }));
-      call.on("accept", () => patch({ state: "open", answeredAt: Date.now() }));
+      call.on("accept", () =>
+        patch({ state: "open", answeredAt: Date.now(), callSid: call.parameters?.CallSid ?? null }),
+      );
       call.on("reconnecting", () => patch({ state: "reconnecting" }));
       call.on("reconnected", () => patch({ state: "open" }));
       call.on("mute", (muted: boolean) => patch({ muted }));
@@ -430,6 +443,14 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
     declineIncoming(callId).catch(() => undefined);
   }, [incoming]);
 
+  const controlCall = useCallback(async (action: CallControlAction, to?: string) => {
+    const call = callRef.current;
+    const sid = call?.parameters?.CallSid;
+    if (!call || !sid) throw new Error("no call in progress");
+    const result = await callControl(sid, action, to);
+    setActive((a) => (a && callRef.current === call ? { ...a, held: result.onHold } : a));
+  }, []);
+
   const value = useMemo<Phone>(
     () => ({
       deviceState,
@@ -448,12 +469,21 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       accept,
       answer,
       decline,
-      hangUp: () => callRef.current?.disconnect(),
+      hangUp: () => {
+        const call = callRef.current;
+        if (!call) return;
+        const sid = call.parameters?.CallSid;
+        // Ending this browser leg alone leaves a held party waiting in the hold queue: the Worker lets them go.
+        // The browser leg's own status callback does the same if this request is lost.
+        if (active?.held && sid) callControl(sid, "hangup").catch(() => undefined);
+        call.disconnect();
+      },
       toggleMute: () => {
         const call = callRef.current;
         if (call) call.mute(!call.isMuted());
       },
       sendDigits: (digits: string) => callRef.current?.sendDigits(digits),
+      controlCall,
       requestMic,
     }),
     [
@@ -469,6 +499,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       accept,
       answer,
       decline,
+      controlCall,
       setError,
     ],
   );

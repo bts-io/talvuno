@@ -149,6 +149,8 @@
     "filter": "Filter calls",
     "empty": "No calls yet.",
     "emptyMissed": "No missed calls.",
+    "search": "Search calls and recordings",
+    "noMatch": "No calls match.",
     "loadMore": "Show more",
     "loadFailed": "Calls could not be loaded.",
     "loading": "Loading",
@@ -161,7 +163,8 @@
     "withheld": "Withheld number",
     "unknownCaller": "Unknown caller",
     "justNow": "Just now",
-    "voicemail": "Voicemail"
+    "voicemail": "Voicemail",
+    "transferredTo": "Transferred to {{number}}"
   },
   "settings": {
     "jump": {
@@ -169,14 +172,19 @@
       "notifications": "Notifications",
       "numbers": "Numbers",
       "hours": "Hours",
+      "menu": "Phone menu",
       "voicemail": "Voicemail",
+      "aiSummaries": "AI summaries",
+      "recording": "Recording",
       "blocked": "Blocked",
       "quickReplies": "Quick replies",
       "missedCallText": "Missed-call text",
       "digest": "Digest",
       "safety": "Safety",
+      "stats": "Activity",
       "account": "Account",
-      "setupCheck": "Setup check"
+      "setupCheck": "Setup check",
+      "about": "About"
     },
     "loading": "Loading",
     "save": "Save",
@@ -266,6 +274,12 @@
       "total": "Total",
       "refresh": "Refresh"
     },
+    "about": {
+      "title": "About",
+      "version": "Talvuno version {{version}}",
+      "license": "Talvuno is free software under the AGPL-3.0.",
+      "source": "Source code"
+    },
     "check": {
       "title": "Setup check",
       "intro": "Which settings this deployment has. Values are never shown.",
@@ -284,6 +298,18 @@
       "retention": "Keep voicemail for (days)",
       "hint": "0 keeps voicemail forever. At most {{max}} days.",
       "forever": "Voicemail is kept until you delete it."
+    },
+    "aiSummaries": {
+      "title": "AI summaries",
+      "intro": "Each voicemail and recorded call transcript gets a short summary and what you were asked to do. A voicemail also gets a line on why they called. The transcript is sent to Cloudflare Workers AI to write it.",
+      "enable": "Summarise transcripts",
+      "onHint": "New transcripts are summarised. A summary can miss or misread details, so the transcript stays next to it.",
+      "offHint": "No transcript is sent to the model. Summaries already made stay until the voicemail or recording is deleted."
+    },
+    "stats": {
+      "title": "Activity",
+      "intro": "Calls, texts and voicemail over time, with a CSV export.",
+      "open": "Open activity"
     }
   },
   "messages": {
@@ -406,6 +432,29 @@
       "callerIdNotOwned": "Twilio does not accept this caller ID. It must be a number you own or have verified.",
       "callFailed": "Twilio could not connect the call (error {{code}}).",
       "answerNeedsCalling": "Calling is not ready yet. Wait a moment or select Retry."
+    },
+    "control": {
+      "hold": "Hold",
+      "resume": "Resume",
+      "onHold": "On hold",
+      "transfer": "Transfer",
+      "transferTo": "Transfer to",
+      "transferPlaceholder": "+61 400 000 000",
+      "next": "Next",
+      "confirm": "Transfer this call to {{number}}? You will leave the call.",
+      "transferNow": "Transfer",
+      "transferring": "Transferring",
+      "cancel": "Cancel",
+      "errors": {
+        "notLive": "This call is no longer in progress.",
+        "invalidNumber": "Enter the full number, starting with + and the country code.",
+        "ownNumber": "That is one of your own numbers. Transfer to another number.",
+        "countryNotAllowed": "Calls to that country are not turned on. Add it in Settings first.",
+        "premiumRate": "Premium rate numbers cannot be called.",
+        "rateLimited": "The hourly call limit has been reached.",
+        "alreadyTransferred": "This call was already transferred.",
+        "generic": "That did not work. Try again."
+      }
     }
   },
   "voicemail": {
@@ -421,15 +470,45 @@
     "retry": "Try again",
     "delete": "Delete voicemail",
     "deleteConfirm": "Delete the voicemail from {{name}}? The recording and its transcript are removed for good.",
-    "deleteFailed": "The voicemail could not be deleted. Try again."
+    "deleteFailed": "The voicemail could not be deleted. Try again.",
+    "aiLabel": "AI summary",
+    "actionItems": "Asked for"
   },
   "routing": {
+    "menu": {
+      "title": "Phone menu",
+      "intro": "Callers hear a short message and press a key. Each key can ring this app, go to voicemail or forward the call to another number. Blocked callers, closed hours and do not disturb still come first.",
+      "enabled": "Play a menu on this number",
+      "prompt": "What callers hear",
+      "promptHint": "For example: Press 1 for sales, press 2 to leave a message.",
+      "keys": "Keys",
+      "key": "Key",
+      "action": "Action",
+      "actions": {
+        "ring": "Ring this app",
+        "voicemail": "Voicemail",
+        "forward": "Forward to a number"
+      },
+      "forwardTo": "Forward to",
+      "forwardHint": "The full number with its country code. It must be in a country you allow.",
+      "addKey": "Add a key",
+      "removeKey": "Remove key {{digit}}",
+      "noKeys": "No keys yet.",
+      "defaultAction": "When no key is pressed",
+      "defaultHint": "No key, or a key with nothing behind it, plays the message once more. After that the call goes here.",
+      "test": "Test the wording",
+      "testHint": "Shows what Twilio is sent for this message. Nothing is saved or called.",
+      "testButton": "Show",
+      "needsPromptAndKey": "A menu that is on needs a message and at least one key.",
+      "forwardRefused": "This call cannot be forwarded right now."
+    },
     "defaultGreeting": "Sorry, no one can take your call right now. Please leave a message after the beep.",
     "answering": "Connecting you to the caller",
     "outcome": {
       "voicemail": "Voicemail",
       "declined": "Declined",
-      "blocked": "Blocked"
+      "blocked": "Blocked",
+      "forwarded": "Forwarded"
     },
     "dndState": {
       "on": "On",
@@ -470,5 +549,121 @@
     "save": "Save",
     "saved": "Saved",
     "noNumbers": "Add a phone number first."
+  },
+  "scheduled": {
+    "title": "Scheduled texts",
+    "filter": "Show scheduled texts",
+    "option": "Schedule for later",
+    "confirm": "Schedule",
+    "discard": "Discard",
+    "save": "Save changes",
+    "edit": "Edit scheduled text",
+    "cancel": "Cancel scheduled text",
+    "dismiss": "Dismiss",
+    "body": "Message",
+    "when": "Send on",
+    "zone": "Time zone: {{zone}}",
+    "within15": "Sends within 15 minutes of the chosen time.",
+    "problem": {
+      "invalid": "Pick a date and time.",
+      "too_soon": "Pick a time at least 2 minutes from now.",
+      "too_far": "Pick a time within the next year."
+    },
+    "failed": "Not sent",
+    "sending": "Sending",
+    "error": "Could not change this scheduled text. Try again."
+  },
+  "stats": {
+    "title": "Activity",
+    "back": "Settings",
+    "range": "Range",
+    "last7": "7 days",
+    "last30": "30 days",
+    "last90": "90 days",
+    "custom": "Custom",
+    "from": "From",
+    "to": "To",
+    "apply": "Show",
+    "number": "Number",
+    "allNumbers": "All numbers",
+    "loading": "Loading",
+    "loadFailed": "Could not load activity.",
+    "rangeError": "Choose a start date on or before the end date, at most 366 days apart.",
+    "tiles": {
+      "calls": "Calls",
+      "missedRate": "Missed rate",
+      "avgLength": "Average call length",
+      "texts": "Texts"
+    },
+    "callsDetail": "{{inbound}} in, {{outbound}} out",
+    "missedDetail": "{{missed}} of {{inbound}} incoming",
+    "missedHelp": "Missed rate is missed calls over incoming calls. Blocked calls are left out, and declined calls count as handled.",
+    "avgDetail": "{{count}} answered",
+    "textsDetail": "{{sent}} sent, {{received}} received",
+    "noCalls": "No calls yet",
+    "noAnswered": "No answered calls",
+    "noTexts": "No texts yet",
+    "callsChart": "Calls per day",
+    "textsChart": "Texts per day",
+    "voicemailsLine": "Voicemails in this range: {{count}}",
+    "inbound": "Incoming",
+    "outbound": "Outgoing",
+    "sent": "Sent",
+    "received": "Received",
+    "table": "Show as table",
+    "date": "Date",
+    "chartLabel": "{{title}}, {{from}} to {{to}}. Busiest day {{peak}} with {{max}}.",
+    "chartEmpty": "Nothing in this range.",
+    "top": "Most active contacts",
+    "topNone": "No activity in this range.",
+    "topCalls_one": "{{count}} call",
+    "topCalls_other": "{{count}} calls",
+    "topTexts_one": "{{count}} text",
+    "topTexts_other": "{{count}} texts",
+    "topVoicemails_one": "{{count}} voicemail",
+    "topVoicemails_other": "{{count}} voicemails",
+    "export": "Export",
+    "exportCalls": "Download calls (CSV)",
+    "exportTexts": "Download texts (CSV)",
+    "exportNote": "Times use your time zone: {{zone}}."
+  },
+  "recording": {
+    "defaultNotice": "This call may be recorded.",
+    "followUps": "Follow ups",
+    "settings": {
+      "title": "Call recording",
+      "intro": "Recorded calls keep both sides on separate channels. Recordings are kept as long as voicemail and are transcribed the same way.",
+      "recordCalls": "Record calls",
+      "playNotice": "Play a recording notice",
+      "noticeHint": "The other party hears this before every call on this number connects. While it is on, recording cannot start mid-call. Leave it empty to use the default notice.",
+      "noticeText": "Recording notice",
+      "consent": "Recording laws differ between places. Turn the notice on before anyone outside the team uses recording.",
+      "loadFailed": "Recording settings could not be loaded.",
+      "saveFailed": "The recording settings could not be saved. Try again."
+    },
+    "live": {
+      "start": "Record",
+      "pause": "Pause recording",
+      "resume": "Resume recording",
+      "recording": "Recording",
+      "paused": "Recording paused",
+      "failed": "The recording could not be changed.",
+      "noticeOn": "Recording mid-call is not available while the recording notice is on. Turn on Record calls for this number so callers hear the notice first."
+    },
+    "recents": {
+      "recorded": "Recorded",
+      "show": "Show the recording of the call with {{name}}",
+      "hide": "Hide the recording",
+      "empty": "No recording for this call.",
+      "loadFailed": "The recording could not be loaded.",
+      "audioPending": "The recording is still on its way.",
+      "transcribing": "Transcribing",
+      "noSpeech": "No speech was heard in this recording.",
+      "transcriptFailed": "The transcript could not be made.",
+      "retry": "Try again",
+      "delete": "Delete recording",
+      "deleteConfirm": "Delete this recording? The audio and its transcript are removed for good.",
+      "deleteFailed": "The recording could not be deleted. Try again."
+    }
   }
 }

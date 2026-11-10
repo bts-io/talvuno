@@ -1,5 +1,6 @@
 /** Call routing settings and the block list, for Settings and the block buttons. */
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { NumberMenu, NumberMenuInput } from "../../contracts/menus";
 import type { BlockedNumber, NumberRouting, NumberRoutingInput } from "../../contracts/routing";
 import { api } from "../lib/api";
 
@@ -49,3 +50,15 @@ export function useDnd() {
   });
   return { dnd: data?.dnd ?? false, ready: Boolean(data), toggle };
 }
+
+export const menusQuery = () =>
+  queryOptions({
+    queryKey: ["routing", "menus"],
+    queryFn: async () => (await api<{ items: NumberMenu[] }>("/api/menus")).items,
+  });
+
+export const saveNumberMenu = (numberId: string, json: NumberMenuInput) =>
+  api<NumberMenu>(`/api/menus/numbers/${encodeURIComponent(numberId)}`, { method: "PUT", json });
+
+export const previewMenu = (prompt: string) =>
+  api<{ twiml: string }>("/api/menus/preview", { method: "POST", json: { prompt } });

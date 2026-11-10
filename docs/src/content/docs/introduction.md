@@ -5,7 +5,7 @@ description: What Talvuno is, what it is not, and the platform limits to know be
 
 Talvuno is an open-source softphone and two-way SMS app for your own Twilio numbers. It runs as one Cloudflare Worker on your own Cloudflare account. You use it from a browser on a phone or a desktop, and you can install it as a web app (a PWA).
 
-It is MIT licensed. The source is at [github.com/bts-io/talvuno](https://github.com/bts-io/talvuno).
+It is free software under the AGPL-3.0. If you run a modified copy for other people over a network, you must offer them its source. Using an unmodified copy yourself or inside your own team needs nothing extra. The source is at [github.com/bts-io/talvuno](https://github.com/bts-io/talvuno).
 
 ## What it does
 

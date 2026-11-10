@@ -2,6 +2,9 @@
 // schema needs no data migration. Timestamps are epoch milliseconds, phone numbers are E.164 strings.
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { SUMMARY_SOURCE_KINDS, SUMMARY_STATUSES } from "../../../contracts/ai-summary";
+import { MENU_DEFAULT_ACTIONS, type MenuKey } from "../../../contracts/menus";
+import { SCHEDULED_STATUSES } from "../../../contracts/scheduled";
 import { CALL_OUTCOMES, CALL_STATUSES, MESSAGE_STATUSES } from "../../../contracts/status";
 import { TRANSCRIPT_STATUSES } from "../../../contracts/voicemail";
 import type { BusinessHours } from "../../../lib/business-hours";
@@ -175,6 +178,11 @@ export const calls = sqliteTable(
      * is still live, and for outbound calls.
      */
     outcome: text("outcome", { enum: CALL_OUTCOMES }),
+    /**
+     * The E.164 number a phone menu forwarded this call to. Set in the same write as the `forwarded` outcome,
+     * and the only number a retry of the key ever dials.
+     */
+    forwardedTo: text("forwarded_to"),
     /** The Twilio queue an inbound caller waits in (random per call, never sent to a browser). */
     queueName: text("queue_name"),
     /** The CallSid of the owner's leg that claimed this waiting call. The first claim wins. */
@@ -182,6 +190,19 @@ export const calls = sqliteTable(
     answerClaimedAt: integer("answer_claimed_at", { mode: "timestamp_ms" }),
     /** When the owner declined the waiting call. The caller then goes to voicemail. */
     declinedAt: integer("declined_at", { mode: "timestamp_ms" }),
+    /** When the owner put the other party on hold. Null while the call is not on hold. */
+    onHoldAt: integer("on_hold_at", { mode: "timestamp_ms" }),
+    /** The Twilio queue the held party waits in (`th_...`, random per hold, never sent to a browser). */
+    holdQueue: text("hold_queue"),
+    /** The CallSid of the other party's leg once looked up: the dialed child of an outbound call. */
+    remoteCallSid: text("remote_call_sid"),
+    /** The number (E.164) the owner handed this call to, and when. */
+    transferredTo: text("transferred_to"),
+    transferredAt: integer("transferred_at", { mode: "timestamp_ms" }),
+    /** How the transfer leg ended (completed, busy, no-answer, failed, canceled), its talk time and end. */
+    transferStatus: text("transfer_status", { enum: CALL_STATUSES }),
+    transferDuration: integer("transfer_duration"),
+    transferEndedAt: integer("transfer_ended_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -423,7 +444,148 @@ export const voicemailSettings = sqliteTable("voicemail_settings", {
   ownerId: text("owner_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  /** Days a voicemail is kept. 0 keeps it forever. */
+  /** Days a voicemail or a call recording is kept. 0 keeps it forever. */
   retentionDays: integer("retention_days").notNull().default(90),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * The phone menu of one of the owner's numbers: a spoken prompt and up to nine keys, each ringing the app,
+ * going to voicemail or forwarding to a number. `keys` is checked with menuKeysSchema on every read and write.
+ */
+export const numberMenus = sqliteTable(
+  "number_menus",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    numberId: text("number_id")
+      .notNull()
+      .unique()
+      .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+    /** Read to the caller with text to speech. */
+    prompt: text("prompt").notNull().default(""),
+    keys: text("keys", { mode: "json" }).$type<MenuKey[]>().notNull().default(sql`'[]'`),
+    /** What a caller gets after two prompts with no usable key: ring or voicemail. */
+    defaultAction: text("default_action", { enum: MENU_DEFAULT_ACTIONS }).notNull().default("ring"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("number_menus_owner_idx").on(t.ownerId)],
+);
+
+/**
+ * Texts the owner wrote now and wants sent later. The cron job claims due rows (`scheduled` to `sending`
+ * in one conditional update) and sends them through `deliverSms` with the stable client id `sched-<id>`, so a
+ * repeated claim can never send twice. `message_id` points at the stored message once it was sent.
+ */
+export const scheduledMessages = sqliteTable(
+  "scheduled_messages",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    numberId: text("number_id")
+      .notNull()
+      .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+    to: text("to").notNull(),
+    body: text("body").notNull(),
+    sendAt: integer("send_at", { mode: "timestamp_ms" }).notNull(),
+    status: text("status", { enum: SCHEDULED_STATUSES }).notNull().default("scheduled"),
+    messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
+    // Why a scheduled text failed (a guard refusal or Twilio's text), never a secret.
+    error: text("error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("scheduled_messages_due_idx").on(t.status, t.sendAt),
+    index("scheduled_messages_owner_idx").on(t.ownerId, t.status, t.sendAt),
+  ],
+);
+
+/**
+ * A recorded call (both sides on separate channels). Kept like a voicemail: the row exists from the moment
+ * Twilio reports the recording, `r2_key` stays null until the audio is in R2, and the Twilio copy is only
+ * deleted after that (`twilio_deleted_at`). A call can have more than one recording (paused and started again
+ * from the call screen), so the recording SID is the unique key, not the call.
+ */
+export const callRecordings = sqliteTable(
+  "call_recordings",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    callId: text("call_id")
+      .notNull()
+      .references(() => calls.id, { onDelete: "cascade" }),
+    numberId: text("number_id").references(() => phoneNumbers.id, { onDelete: "set null" }),
+    duration: integer("duration"),
+    /** 2 when each side is on its own channel, 1 for a mono recording. */
+    channels: integer("channels").notNull().default(2),
+    twilioRecordingSid: text("twilio_recording_sid").notNull().unique(),
+    r2Key: text("r2_key"),
+    contentType: text("content_type"),
+    size: integer("size"),
+    storeAttempts: integer("store_attempts").notNull().default(0),
+    storeError: text("store_error"),
+    twilioDeletedAt: integer("twilio_deleted_at", { mode: "timestamp_ms" }),
+    transcript: text("transcript"),
+    transcriptStatus: text("transcript_status", { enum: TRANSCRIPT_STATUSES }).notNull().default("pending"),
+    transcriptError: text("transcript_error"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("call_recordings_call_idx").on(t.callId),
+    index("call_recordings_owner_created_idx").on(t.ownerId, t.createdAt, t.id),
+  ],
+);
+
+/** Per-number call recording switches. No row means recording off and no notice. */
+export const numberRecording = sqliteTable(
+  "number_recording",
+  {
+    numberId: text("number_id")
+      .primaryKey()
+      .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+    ownerId: ownerId(),
+    /** Record every outbound and answered inbound call on this number. */
+    recordCalls: integer("record_calls", { mode: "boolean" }).notNull().default(false),
+    /** Play the notice to the other party before a recorded call connects. */
+    playNotice: integer("play_notice", { mode: "boolean" }).notNull().default(false),
+    /** The spoken notice. Null means the default text. */
+    noticeText: text("notice_text"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("number_recording_owner_idx").on(t.ownerId)],
+);
+
+/**
+ * An AI summary of one transcript (a voicemail or a recorded call). The unique key makes "one summary per
+ * transcript" atomic: the row is claimed before the model is asked. `source_id` is the voicemail or recording
+ * id, so there is no foreign key: deleting the source deletes its summary in code.
+ */
+export const aiSummaries = sqliteTable(
+  "ai_summaries",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    sourceKind: text("source_kind", { enum: SUMMARY_SOURCE_KINDS }).notNull(),
+    sourceId: text("source_id").notNull(),
+    summary: text("summary"),
+    actionItems: text("action_items", { mode: "json" }).$type<string[]>(),
+    oneLiner: text("one_liner"),
+    model: text("model").notNull(),
+    status: text("status", { enum: SUMMARY_STATUSES }).notNull().default("pending"),
+    error: text("error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("ai_summaries_source_idx").on(t.ownerId, t.sourceKind, t.sourceId)],
+);
+
+/** Per-owner AI summary settings. No row means on. */
+export const aiSummarySettings = sqliteTable("ai_summary_settings", {
+  ownerId: text("owner_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   updatedAt: updatedAt(),
 });

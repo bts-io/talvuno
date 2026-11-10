@@ -1,7 +1,8 @@
-import { ArrowClockwise, Trash, Voicemail as VoicemailIcon } from "@phosphor-icons/react";
+import { ArrowClockwise, Sparkle, Trash, Voicemail as VoicemailIcon } from "@phosphor-icons/react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { AiSummary } from "../../contracts/ai-summary";
 import type { Voicemail, VoicemailList as VoicemailPage } from "../../contracts/voicemail";
 import { formatPhone, isE164 } from "../../lib/phone";
 import { api } from "../lib/api";
@@ -109,6 +110,11 @@ function VoicemailRow({ vm, when }: { vm: Voicemail; when: (at: number) => strin
             </span>
             {unheard ? <span className="sr-only">{t("voicemail.unheard")}</span> : null}
           </span>
+          {vm.aiSummary?.oneLiner ? (
+            <span className="block truncate text-sm text-slate-700 dark:text-slate-200" dir="auto">
+              {vm.aiSummary.oneLiner}
+            </span>
+          ) : null}
           <span className="block truncate text-sm text-slate-500 dark:text-slate-400">
             {details.join(" · ")}
           </span>
@@ -157,6 +163,8 @@ function VoicemailRow({ vm, when }: { vm: Voicemail; when: (at: number) => strin
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("voicemail.transcribing")}</p>
       ) : null}
 
+      {vm.aiSummary ? <SummaryBlock summary={vm.aiSummary} /> : null}
+
       {confirming ? (
         <Confirm
           message={t("voicemail.deleteConfirm", { name })}
@@ -174,5 +182,44 @@ function VoicemailRow({ vm, when }: { vm: Voicemail; when: (at: number) => strin
         </p>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * The AI summary of a voicemail or a recorded call and what was asked for, labelled so it is never taken for
+ * the transcript.
+ */
+export function SummaryBlock({
+  summary,
+  kind = "voicemail",
+}: {
+  summary: AiSummary;
+  kind?: "voicemail" | "call";
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-1 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-navy-800">
+      <span className="flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+        <Sparkle aria-hidden className="size-3.5" />
+        {t("voicemail.aiLabel")}
+      </span>
+      <p className="text-slate-700 dark:text-slate-200" dir="auto">
+        {summary.summary}
+      </p>
+      {summary.actionItems.length ? (
+        <>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            {t(kind === "call" ? "recording.followUps" : "voicemail.actionItems")}
+          </span>
+          <ul className="list-disc ps-5 text-slate-700 dark:text-slate-200">
+            {summary.actionItems.map((item) => (
+              <li key={item} dir="auto">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
   );
 }

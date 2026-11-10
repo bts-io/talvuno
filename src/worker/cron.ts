@@ -7,9 +7,11 @@ import { lt } from "drizzle-orm";
 import { createDb } from "./db";
 import { webhookEvents } from "./db/schema";
 import { sendDigests } from "./lib/digest";
+import { sendDueScheduled } from "./lib/scheduled";
 import { refreshStuckMessages } from "./lib/sms";
 import { sweepLeftoverQueues } from "./lib/voice/queues";
 import { reconcileStuckCalls } from "./lib/voice/reconcile";
+import { pruneCallRecordings, repairCallRecordings } from "./lib/voice/recording";
 import { pruneVoicemails, repairVoicemails } from "./lib/voicemail";
 
 export type CronJob = (env: Env, ctx: ExecutionContext) => Promise<void>;
@@ -29,7 +31,10 @@ export const cronJobs: CronJob[] = [
   sendDigests,
   repairVoicemails,
   pruneVoicemails,
+  repairCallRecordings,
+  pruneCallRecordings,
   sweepLeftoverQueues,
+  sendDueScheduled,
 ];
 
 /** Runs every job, each on its own, and waits for all of them. */

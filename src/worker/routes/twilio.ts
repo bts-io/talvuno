@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { twilioSignature } from "../lib/twilio/signature";
 import type { AppEnv } from "../types";
+import { twilioHold } from "./twilio-hold";
+import { twilioRecording } from "./twilio-recording";
 import { twilioSms } from "./twilio-sms";
 import { twilioVoice } from "./twilio-voice";
 import { twilioVoicemail } from "./twilio-voicemail";
@@ -18,6 +20,8 @@ import { twilioVoicemail } from "./twilio-voicemail";
  *   POST /api/twilio/voice/inbound    number's voice URL
  *   POST /api/twilio/voice/status     call status callback
  *   POST /api/twilio/voice/voicemail  recording status callback of a voicemail <Record>
+ *   POST /api/twilio/voice/recording  recording status callback of a recorded call (and /notice, its whisper)
+ *   POST /api/twilio/voice/hold/...  hold queue, resume and transfer TwiML (routes/twilio-hold.ts)
  *   POST /api/twilio/sms/inbound      number's messaging URL
  *   POST /api/twilio/sms/status       message status callback
  *
@@ -29,3 +33,5 @@ twilio.use("*", twilioSignature());
 twilio.route("/sms", twilioSms);
 twilio.route("/voice", twilioVoice);
 twilio.route("/voice/voicemail", twilioVoicemail);
+twilio.route("/voice/hold", twilioHold);
+twilio.route("/voice/recording", twilioRecording);

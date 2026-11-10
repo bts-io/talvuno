@@ -1,4 +1,4 @@
-import { ChatCircleText, PaperPlaneRight } from "@phosphor-icons/react";
+import { ChatCircleText, Clock, PaperPlaneRight } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
@@ -7,6 +7,8 @@ import { SMS_BODY_MAX } from "../../contracts";
 import { smsLength } from "../../lib/sms";
 import { useDraft } from "../lib/drafts";
 import { fillDraft, quickRepliesQuery } from "../lib/quick-replies";
+import { useOwnerZone } from "../lib/scheduled";
+import { SchedulePicker } from "./schedule-picker";
 
 /**
  * The message box: a growing textarea kept as a draft on this device under `draftKey`, a character and
@@ -16,16 +18,22 @@ export function SmsComposer({
   draftKey,
   disabled,
   onSend,
+  onSchedule,
 }: {
   draftKey: string;
   disabled?: boolean;
   /** Resolve true when the message was accepted, so the draft is cleared. */
   onSend: (body: string) => Promise<boolean>;
+  /** When given, a Schedule option sits next to Send. Resolve true when the text was scheduled. */
+  onSchedule?: (body: string, sendAt: number) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft, clear] = useDraft(draftKey);
   const counterId = useId();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [sendAt, setSendAt] = useState<number | null>(null);
+  const zone = useOwnerZone();
   const replies = useQuery(quickRepliesQuery());
   const length = smsLength(draft);
   const tooLong = length.characters > SMS_BODY_MAX;
@@ -37,6 +45,15 @@ export function SmsComposer({
     const body = draft;
     clear();
     if (!(await onSend(body))) setDraft(body);
+  };
+
+  const schedule = async () => {
+    if (!onSchedule || !canSend || sendAt === null) return;
+    const body = draft;
+    if (await onSchedule(body, sendAt)) {
+      clear();
+      setScheduling(false);
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -75,6 +92,28 @@ export function SmsComposer({
           ))}
         </ul>
       ) : null}
+      {scheduling && onSchedule ? (
+        <div className="mb-2 flex flex-col gap-2 rounded-xl bg-slate-50 p-3 dark:bg-navy-950">
+          <SchedulePicker zone={zone} onChange={setSendAt} />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void schedule()}
+              disabled={!canSend || sendAt === null}
+              className="rounded-lg bg-brand-blue px-3 py-1.5 text-sm text-white disabled:opacity-40"
+            >
+              {t("scheduled.confirm")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setScheduling(false)}
+              className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-navy-800"
+            >
+              {t("scheduled.discard")}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="flex items-end gap-2">
         <button
           type="button"
@@ -100,6 +139,18 @@ export function SmsComposer({
             className="field-sizing-content max-h-40 min-h-10 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 dark:border-navy-700 dark:bg-navy-950"
           />
         </label>
+        {onSchedule ? (
+          <button
+            type="button"
+            onClick={() => setScheduling((v) => !v)}
+            aria-expanded={scheduling}
+            aria-label={t("scheduled.option")}
+            title={t("scheduled.option")}
+            className="mb-0.5 rounded-full p-2.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-navy-800"
+          >
+            <Clock aria-hidden className="size-5" />
+          </button>
+        ) : null}
         <button
           type="submit"
           disabled={!canSend}

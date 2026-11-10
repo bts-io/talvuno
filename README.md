@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://docs.talvuno.h1n054ur.dev/">Documentation</a> ·
   <a href="https://docs.talvuno.h1n054ur.dev/getting-started/">Getting started</a> ·
-  <a href="LICENSE">MIT licence</a>
+  <a href="LICENSE">AGPL-3.0 licence</a>
 </p>
 
 Talvuno lets you make and take calls and send texts from a browser or an installed web app, using phone numbers you already have on Twilio. You deploy it to your own Cloudflare account, so the call history, messages and contacts stay in your own database. Twilio keeps its own logs of calls and messages as usual. Call audio goes straight between the browser and Twilio and never passes through the Worker.
@@ -178,4 +178,8 @@ Issues and pull requests are welcome on [GitHub](https://github.com/bts-io/talvu
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+Copyright (c) 2026 Borderless Technology Solutions
+
+Talvuno is free software under the GNU Affero General Public License v3.0 (`AGPL-3.0-only`), see [LICENSE](LICENSE).
+
+In plain words: using Talvuno yourself, or inside your own team, on an unmodified copy needs nothing extra. If you run a modified Talvuno for other people over a network, you must offer them its source. Set `SOURCE_URL` in `wrangler.jsonc` to your fork and the Settings page links to it.

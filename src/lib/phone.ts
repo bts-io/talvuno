@@ -33,6 +33,11 @@ export function countryOf(e164: string): CountryCode | null {
   return parsePhoneNumberFromString(e164)?.country ?? null;
 }
 
+/** The country calling code ("61") of an E.164 number, or null when it cannot be parsed. */
+export function callingCodeOf(e164: string): string | null {
+  return parsePhoneNumberFromString(e164)?.countryCallingCode ?? null;
+}
+
 /** Human formatting for display. Falls back to the raw value for anything unparsable. */
 export function formatPhone(e164: string, style: "international" | "national" = "international"): string {
   const parsed = parsePhoneNumberFromString(e164);

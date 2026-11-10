@@ -40,8 +40,11 @@ export const CALL_STATUSES = [
 export const callStatusSchema = z.enum(CALL_STATUSES);
 export type CallStatus = z.infer<typeof callStatusSchema>;
 
-/** How an inbound call ended for the owner. Null while a call is live, and for outbound calls. */
-export const CALL_OUTCOMES = ["answered", "missed", "voicemail", "declined", "blocked"] as const;
+/**
+ * How an inbound call ended for the owner. Null while a call is live, and for outbound calls. "forwarded"
+ * means a phone menu key sent the caller on to another number.
+ */
+export const CALL_OUTCOMES = ["answered", "missed", "voicemail", "declined", "blocked", "forwarded"] as const;
 export const callOutcomeSchema = z.enum(CALL_OUTCOMES);
 export type CallOutcome = z.infer<typeof callOutcomeSchema>;
 

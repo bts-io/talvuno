@@ -5,14 +5,19 @@ export const SETTINGS_SECTIONS = [
   ["notifications", "settings.jump.notifications"],
   ["numbers", "settings.jump.numbers"],
   ["hours", "settings.jump.hours"],
+  ["menu", "settings.jump.menu"],
   ["voicemail", "settings.jump.voicemail"],
+  ["recording", "settings.jump.recording"],
+  ["ai-summaries", "settings.jump.aiSummaries"],
   ["blocked", "settings.jump.blocked"],
   ["quick-replies", "settings.jump.quickReplies"],
   ["missed-call-text", "settings.jump.missedCallText"],
   ["safety", "settings.jump.safety"],
   ["digest", "settings.jump.digest"],
+  ["stats", "settings.jump.stats"],
   ["account", "settings.jump.account"],
   ["setup-check", "settings.jump.setupCheck"],
+  ["about", "settings.jump.about"],
 ] as const;
 
 /** A compact "Jump to" list of the section anchors, for small screens where Settings is very long. */

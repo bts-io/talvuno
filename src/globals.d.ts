@@ -25,6 +25,8 @@ interface Env {
   OIDC_CLIENT_ID?: string;
   OIDC_CLIENT_SECRET?: string;
   OIDC_BUTTON_LABEL?: string;
+  /** AGPL section 13: the source link shown in Settings. Defaults to the upstream repository. Point it at your fork if you modify Talvuno. */
+  SOURCE_URL?: string;
   /** "true" sends Content-Security-Policy-Report-Only instead of enforcing the policy. For debugging a self-hosted install. */
   CSP_REPORT_ONLY?: string;
   /** Tests only: turns off Better Auth's sign-in rate limit. */

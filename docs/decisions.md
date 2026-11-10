@@ -113,3 +113,35 @@ does not fit, so it runs from a Cloudflare Queue (`talvuno-transcribe`) with ret
 on Workers AI through AI Gateway (`AI_GATEWAY_ID`). A transcript that still fails is marked failed and can be
 retried from Recents. The audio stays playable either way. A per-owner retention setting (default 90 days,
 0 for forever) is enforced by the cron.
+
+## 13. Hold and transfer move the other party's leg, not the bridge
+
+A call already has two legs bridged by `<Dial>`. Outbound, the browser leg dials the number as a child.
+Inbound, the browser takes the caller out of their queue with `<Dial><Queue>`. Hold and transfer reuse that
+shape and redirect one leg through Twilio's REST API (`POST /Calls/{Sid}.json` with `Twiml`).
+
+- **Hold** redirects the other party into a hold queue of its own (`th_` plus a random name) with Twilio's free
+  hold music. Their leg leaving the bridge ends the browser's `<Dial>`, whose action answers with a quiet
+  `<Pause>` loop, so the browser stays on the call and hears silence.
+- **Resume** redirects the browser leg to `<Dial><Queue>` of that hold queue. The owner API checks the call is
+  the owner's and held, and only then sends the queue name to Twilio. The name never reaches a browser.
+- **Cold transfer** checks the target with `assertCanContact` (allowlist, premium-rate block, hourly limit),
+  records it on the call row, redirects the other party to `<Dial callerId="our number"><Number>`, then ends
+  the browser leg. The row closes when the other party hangs up, and Recents shows "Transferred to". The
+  target's `<Number>` has a status callback and the `<Dial>` an action, both naming the call row, so the
+  transfer leg's result and talk time land on the row (whichever arrives first). The transfer may talk only
+  for what is left of the call's two hour limit, and never less than a minute.
+- **Hang-up while holding** lets the held party go at once. The hang-up button asks the Worker first
+  (`POST /api/calls/<call>/hangup`), and the browser leg's own status callback does the same if that request
+  is lost. Either one closes the row as an answered call that ended, then redirects the held party to a short
+  spoken goodbye. It runs once per call, through `webhook_events`.
+
+A held party is never left waiting: after ten minutes the hold queue's wait URL answers `<Leave/>`, they
+hear a short spoken message and the call ends. We chose a message over voicemail because an outbound call
+has no voicemail box of ours to land in, and one rule for both directions is easier to trust. Hold queues are
+deleted when the party leaves them, and the queue sweep removes any a missed webhook left behind.
+
+We did not move calls into `<Conference>`, although it has hold and participant controls built in. Every
+call would have to start as a conference, which changes how calls are bridged and closed in both directions
+and how recording attaches to them, for two features that the queue and a redirect already cover. If warm
+transfer or three-way calls are wanted later, a conference is the tool for that, and it gets its own record.

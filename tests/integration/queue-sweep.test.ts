@@ -55,6 +55,21 @@ describe("cron: leftover queue sweep", () => {
     expect(listed[1]).toContain("PageToken=abc");
   });
 
+  it("sweeps hold queues (th_) the same way", async () => {
+    const { deleted } = mockTwilio([
+      {
+        queues: [
+          { sid: sid(6), friendly_name: "th_a", current_size: 0, date_created: created(OLD) },
+          { sid: sid(7), friendly_name: "th_b", current_size: 1, date_created: created(OLD) },
+          { sid: sid(8), friendly_name: "th_c", current_size: 0, date_created: created(60_000) },
+          { sid: sid(9), friendly_name: "thx", current_size: 0, date_created: created(OLD) },
+        ],
+      },
+    ]);
+    await sweepLeftoverQueues(env, undefined, NOW);
+    expect(deleted).toEqual([`${sid(6)}.json`]);
+  });
+
   it("skips quietly when Twilio is not configured", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);

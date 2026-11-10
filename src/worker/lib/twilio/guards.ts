@@ -18,19 +18,18 @@ export type ContactKind = "sms" | "call";
 const safeLimit = (n: unknown) => (typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
 
 /**
- * Throws unless `ownerId` may text or call `e164` right now:
+ * Throws unless `ownerId` may reach `e164` at all, without spending anything from the hourly budget:
  * - 400 `invalid_number` unless it is a valid full E.164 number. This is for outbound only: short codes,
  *   alphanumeric sender IDs and withheld callers ("anonymous", "restricted") that arrive inbound are refused.
  * - 403 `premium_rate` for premium-rate numbers.
  * - 403 `country_not_allowed` when its country is not in the owner's allowlist (empty allows nothing).
- * - 429 `rate_limited` when the hourly limit for `kind` is used up. Otherwise one unit is taken.
+ * Returns the owner's preferences so a caller that goes on to spend the budget reads them once.
  */
-export async function assertCanContact(
-  c: Pick<Context<AppEnv>, "env" | "get">,
+export async function assertDestinationAllowed(
+  c: Pick<Context<AppEnv>, "get">,
   ownerId: string,
   e164: string,
-  kind: ContactKind,
-): Promise<void> {
+) {
   if (typeof e164 !== "string" || !isE164(e164) || toE164(e164) !== e164)
     throw new ApiError(400, "invalid_number", "Not a valid phone number");
   if (parseWithTypes(e164)?.getType() === "PREMIUM_RATE")
@@ -38,6 +37,21 @@ export async function assertCanContact(
   const limits = await getPreferences(c.get("db"), ownerId);
   if (!isAllowedDestination(e164, Array.isArray(limits.countryAllowlist) ? limits.countryAllowlist : []))
     throw new ApiError(403, "country_not_allowed", "That country is not in your allowed list");
+  return limits;
+}
+
+/**
+ * Throws unless `ownerId` may text or call `e164` right now: the destination checks of
+ * `assertDestinationAllowed`, then 429 `rate_limited` when the hourly limit for `kind` is used up.
+ * Otherwise one unit is taken.
+ */
+export async function assertCanContact(
+  c: Pick<Context<AppEnv>, "env" | "get">,
+  ownerId: string,
+  e164: string,
+  kind: ContactKind,
+): Promise<void> {
+  const limits = await assertDestinationAllowed(c, ownerId, e164);
   const limit = safeLimit(kind === "sms" ? limits.smsPerHour : limits.callsPerHour);
   if (limit === 0)
     throw new ApiError(

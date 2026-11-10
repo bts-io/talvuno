@@ -32,6 +32,8 @@ export type CallFilter = z.infer<typeof callFilterSchema>;
 
 export const callListQuerySchema = z.object({
   filter: callFilterSchema.default("all"),
+  /** Matches the number or the transcript of a call recording. */
+  q: z.string().trim().max(100).optional(),
   cursor: z.string().max(400).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
@@ -40,6 +42,10 @@ export const callListQuerySchema = z.object({
 export const callEntrySchema = callSchema.extend({
   contactName: z.string().nullable(),
   missed: z.boolean(),
+  /** The call has at least one recording. */
+  recorded: z.boolean(),
+  /** What the caller wanted, from the AI summary of the voicemail they left on this call. */
+  whatTheyWanted: z.string().nullable(),
 });
 export type CallEntry = z.infer<typeof callEntrySchema>;
 
@@ -52,8 +58,11 @@ export type CallList = z.infer<typeof callListSchema>;
 /** An inbound call that ended in one of these was not answered. */
 export const MISSED_STATUSES = ["no-answer", "busy", "canceled", "failed"] as const;
 
-/** Outcomes that are never a missed call: the caller reached voicemail, was declined or was blocked. */
-export const NOT_MISSED_OUTCOMES = ["voicemail", "declined", "blocked"] as const;
+/**
+ * Outcomes that are never a missed call: the caller reached voicemail, was declined, was blocked or was
+ * forwarded by the phone menu.
+ */
+export const NOT_MISSED_OUTCOMES = ["voicemail", "declined", "blocked", "forwarded"] as const;
 
 /**
  * A missed call: inbound, ended without being answered, and not sent to voicemail, declined or blocked on

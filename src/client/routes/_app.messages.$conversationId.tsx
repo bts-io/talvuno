@@ -7,9 +7,11 @@ import { useTranslation } from "react-i18next";
 import type { ThreadMessage } from "../../contracts/messages";
 import { isE164 } from "../../lib/phone";
 import { BlockButton } from "../components/block-button";
+import { ScheduledTexts } from "../components/scheduled-texts";
 import { SmsComposer } from "../components/sms-composer";
 import { ThreadHeaderActions } from "../components/thread-actions";
 
+import { ApiError } from "../lib/api";
 import { queryKeys } from "../lib/live";
 import {
   conversationQuery,
@@ -20,6 +22,7 @@ import {
   threadQuery,
   useSendMessage,
 } from "../lib/messages";
+import { useScheduleMutations } from "../lib/scheduled";
 
 const blockInHeader =
   "inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-navy-800";
@@ -34,6 +37,7 @@ function ThreadPage() {
   const conversation = useQuery(conversationQuery(conversationId));
   const thread = useInfiniteQuery(threadQuery(conversationId));
   const send = useSendMessage();
+  const { create: schedule } = useScheduleMutations();
   const navigate = useNavigate();
   const bottom = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +74,18 @@ function ThreadPage() {
     }
   };
 
+  const scheduleBody = async (body: string, sendAt: number) => {
+    if (!c) return false;
+    setError(null);
+    try {
+      await schedule.mutateAsync({ numberId: c.numberId, to: c.participant, body, sendAt });
+      return true;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : failureText(t, err));
+      return false;
+    }
+  };
+
   const title = c ? (c.contactName ?? displayAddress(c.participant)) : "";
   const canReply = c ? isE164(c.participant) : true;
 
@@ -102,6 +118,8 @@ function ThreadPage() {
         <BlockButton address={c?.participant} className={blockInHeader} />
       </header>
 
+      {c && canReply ? <ScheduledTexts thread={{ numberId: c.numberId, to: c.participant }} /> : null}
+
       <div className="flex-1 overflow-y-auto px-3 py-4" aria-live="polite">
         {thread.hasNextPage && (
           <div className="mb-3 text-center">
@@ -133,7 +151,12 @@ function ThreadPage() {
         </p>
       )}
       {canReply ? (
-        <SmsComposer draftKey={conversationId} disabled={!c} onSend={(body) => sendBody(body)} />
+        <SmsComposer
+          draftKey={conversationId}
+          disabled={!c}
+          onSend={(body) => sendBody(body)}
+          onSchedule={scheduleBody}
+        />
       ) : (
         <p className="border-t border-slate-200 p-4 text-center text-sm text-slate-500 dark:border-navy-800">
           {t("messages.cannotReply")}

@@ -1,12 +1,13 @@
-import { PhoneIncoming, PhoneOutgoing, PhoneX, UserPlus } from "@phosphor-icons/react";
+import { PhoneIncoming, PhoneOutgoing, PhoneX, UserPlus, Waveform } from "@phosphor-icons/react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import type { CallEntry, CallFilter, CallList } from "../../contracts/contacts";
 import { formatPhone, isE164 } from "../../lib/phone";
 import { BlockButton } from "../components/block-button";
+import { CallRecordings } from "../components/call-recordings";
 import { RowMenu, type RowMenuItem, useLongPress } from "../components/row-menu";
 import { VoicemailList } from "../components/voicemail-list";
 import { useBlockToggle } from "../hooks/use-routing";
@@ -49,12 +50,20 @@ function RecentsPage() {
   const filter: Tab = Route.useSearch().filter ?? "all";
   const setFilter = (f: Tab) =>
     navigate({ to: "/recents", search: f === "all" ? {} : { filter: f }, replace: true });
+  const [search, setSearch] = useState("");
+  // One request per pause in typing, not one per key.
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setQ(search.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
   const query = useInfiniteQuery({
     enabled: filter !== "voicemail",
-    queryKey: [...queryKeys.calls, filter],
+    queryKey: [...queryKeys.calls, filter, q],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({ filter });
+      if (q) params.set("q", q);
       if (pageParam) params.set("cursor", pageParam);
       return api<CallList>(`/api/calls?${params}`);
     },
@@ -89,6 +98,19 @@ function RecentsPage() {
         ))}
       </div>
 
+      {filter !== "voicemail" ? (
+        <label className="block">
+          <span className="sr-only">{t("recents.search")}</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("recents.search")}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-navy-700 dark:bg-navy-950"
+          />
+        </label>
+      ) : null}
+
       {filter === "voicemail" ? (
         <VoicemailList when={(at) => relativeTime(at, i18n.language, t("recents.justNow"))} />
       ) : query.isError ? (
@@ -99,7 +121,7 @@ function RecentsPage() {
         <p className="text-slate-500">{t("recents.loading")}</p>
       ) : items.length === 0 ? (
         <p className="text-slate-500 dark:text-slate-400">
-          {t(filter === "missed" ? "recents.emptyMissed" : "recents.empty")}
+          {t(q ? "recents.noMatch" : filter === "missed" ? "recents.emptyMissed" : "recents.empty")}
         </p>
       ) : (
         <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:divide-navy-800 dark:border-navy-800 dark:bg-navy-900">
@@ -134,7 +156,11 @@ function CallRow({ call }: { call: CallEntry }) {
       ? t("recents.withheld")
       : t("recents.unknownCaller");
   const Icon = call.missed ? PhoneX : call.direction === "inbound" ? PhoneIncoming : PhoneOutgoing;
-  const routed = call.outcome === "voicemail" || call.outcome === "declined" || call.outcome === "blocked";
+  const routed =
+    call.outcome === "voicemail" ||
+    call.outcome === "declined" ||
+    call.outcome === "blocked" ||
+    call.outcome === "forwarded";
   const kind = call.missed
     ? "recents.missedCall"
     : routed
@@ -145,6 +171,7 @@ function CallRow({ call }: { call: CallEntry }) {
   const when = call.startedAt ?? call.endedAt;
   const details = [
     t(kind),
+    call.transferredTo ? t("recents.transferredTo", { number: formatPhone(call.transferredTo) }) : null,
     call.duration ? formatDuration(call.duration) : null,
     when ? relativeTime(when, i18n.language, t("recents.justNow")) : null,
   ].filter(Boolean);
@@ -156,6 +183,7 @@ function CallRow({ call }: { call: CallEntry }) {
       : null;
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showRecording, setShowRecording] = useState(false);
   const { blocked, toggle } = useBlockToggle(dialable ? call.party : null);
   const press = useLongPress(() => setMenuOpen(true));
   const canSave = dialable && !call.contactName;
@@ -183,72 +211,103 @@ function CallRow({ call }: { call: CallEntry }) {
   ];
 
   return (
-    <li className="flex items-center gap-1 pe-2" {...press}>
-      {dialable ? (
-        <button
-          type="button"
-          onClick={() => navigate({ href: `/keypad?to=${encodeURIComponent(call.party)}` })}
-          aria-label={t("recents.callBack", { name })}
-          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start hover:bg-slate-50 dark:hover:bg-navy-800"
-        >
-          <Icon
-            aria-hidden
-            className={`size-5 shrink-0 ${call.missed ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
-          />
-          <span className="min-w-0">
-            <span
-              className={`block truncate font-medium ${call.missed ? "text-red-600 dark:text-red-400" : ""}`}
-              dir="auto"
-            >
-              {name}
-            </span>
-            <span className="block truncate text-sm text-slate-500 dark:text-slate-400">
-              {details.join(" · ")}
-            </span>
-            {failure ? <span className="block text-sm text-red-600 dark:text-red-400">{failure}</span> : null}
-          </span>
-        </button>
-      ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start">
-          <Icon
-            aria-hidden
-            className={`size-5 shrink-0 ${call.missed ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
-          />
-          <span className="min-w-0">
-            <span
-              className={`block truncate font-medium ${call.missed ? "text-red-600 dark:text-red-400" : ""}`}
-              dir="auto"
-            >
-              {name}
-            </span>
-            <span className="block truncate text-sm text-slate-500 dark:text-slate-400">
-              {details.join(" · ")}
-            </span>
-            {failure ? <span className="block text-sm text-red-600 dark:text-red-400">{failure}</span> : null}
-          </span>
-        </div>
-      )}
-      <div className="hidden items-center gap-1 md:flex">
-        {dialable ? <BlockButton address={call.party} /> : null}
-        {canSave ? (
+    <li className="flex flex-col">
+      <div className="flex items-center gap-1 pe-2" {...press}>
+        {dialable ? (
           <button
             type="button"
-            onClick={() => navigate({ href: `/contacts?add=${encodeURIComponent(call.party)}` })}
-            className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-sm text-brand-blue hover:bg-brand-blue/10"
+            onClick={() => navigate({ href: `/keypad?to=${encodeURIComponent(call.party)}` })}
+            aria-label={t("recents.callBack", { name })}
+            className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start hover:bg-slate-50 dark:hover:bg-navy-800"
           >
-            <UserPlus aria-hidden className="size-4" />
-            {t("recents.saveContact")}
+            <Icon
+              aria-hidden
+              className={`size-5 shrink-0 ${call.missed ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+            />
+            <span className="min-w-0">
+              <span
+                className={`block truncate font-medium ${call.missed ? "text-red-600 dark:text-red-400" : ""}`}
+                dir="auto"
+              >
+                {name}
+              </span>
+              <span className="block text-sm text-slate-500 dark:text-slate-400">{details.join(" · ")}</span>
+              {failure ? (
+                <span className="block text-sm text-red-600 dark:text-red-400">{failure}</span>
+              ) : null}
+              {call.whatTheyWanted ? (
+                <span className="block truncate text-sm text-slate-700 dark:text-slate-200" dir="auto">
+                  {call.whatTheyWanted}
+                </span>
+              ) : null}
+            </span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start">
+            <Icon
+              aria-hidden
+              className={`size-5 shrink-0 ${call.missed ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+            />
+            <span className="min-w-0">
+              <span
+                className={`block truncate font-medium ${call.missed ? "text-red-600 dark:text-red-400" : ""}`}
+                dir="auto"
+              >
+                {name}
+              </span>
+              <span className="block text-sm text-slate-500 dark:text-slate-400">{details.join(" · ")}</span>
+              {failure ? (
+                <span className="block text-sm text-red-600 dark:text-red-400">{failure}</span>
+              ) : null}
+              {call.whatTheyWanted ? (
+                <span className="block truncate text-sm text-slate-700 dark:text-slate-200" dir="auto">
+                  {call.whatTheyWanted}
+                </span>
+              ) : null}
+            </span>
+          </div>
+        )}
+        {call.recorded ? (
+          <button
+            type="button"
+            onClick={() => setShowRecording((v) => !v)}
+            aria-expanded={showRecording}
+            aria-label={showRecording ? t("recording.recents.hide") : t("recording.recents.show", { name })}
+            title={t("recording.recents.recorded")}
+            className={`shrink-0 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-navy-800 ${
+              showRecording ? "text-brand-blue" : "text-slate-500 dark:text-slate-400"
+            }`}
+          >
+            <Waveform aria-hidden className="size-5" />
           </button>
         ) : null}
+        <div className="hidden items-center gap-1 md:flex">
+          {dialable ? <BlockButton address={call.party} /> : null}
+          {canSave ? (
+            <button
+              type="button"
+              onClick={() => navigate({ href: `/contacts?add=${encodeURIComponent(call.party)}` })}
+              className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 text-sm text-brand-blue hover:bg-brand-blue/10"
+            >
+              <UserPlus aria-hidden className="size-4" />
+              {t("recents.saveContact")}
+            </button>
+          ) : null}
+        </div>
+        {menuItems.length ? (
+          <div className="md:hidden">
+            <RowMenu
+              label={t("recents.moreActions", { name })}
+              items={menuItems}
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+            />
+          </div>
+        ) : null}
       </div>
-      {menuItems.length ? (
-        <div className="md:hidden">
-          <RowMenu
-            label={t("recents.moreActions", { name })}
-            items={menuItems}
-            open={menuOpen}
-            onOpenChange={setMenuOpen}
-          />
+      {showRecording ? (
+        <div className="px-4 pb-3">
+          <CallRecordings callId={call.id} />
         </div>
       ) : null}
     </li>

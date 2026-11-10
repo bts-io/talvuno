@@ -103,9 +103,13 @@ export function voicemailTwiml(env: Env, greeting: string | null): string {
   );
 }
 
-/** The caller's TwiML while waiting for an answer: join the call's own queue with ringback. */
-export function enqueueTwiml(env: Env, queueName: string): string {
+/**
+ * The caller's TwiML while waiting for an answer: join the call's own queue with ringback. `before` is TwiML
+ * that runs first (the recording notice, when the number records calls and plays it).
+ */
+export function enqueueTwiml(env: Env, queueName: string, before = ""): string {
   return response(
+    before,
     el(
       "Enqueue",
       {
@@ -119,12 +123,21 @@ export function enqueueTwiml(env: Env, queueName: string): string {
   );
 }
 
-/** The owner's leg that answers: take the caller out of the call's queue. */
-export function dequeueTwiml(env: Env, queueName: string, timeLimit: number): string {
+/**
+ * The owner's leg that answers: take the caller out of the call's queue. The <Dial action> keeps this leg
+ * connected while the caller is on hold (routes/twilio-hold.ts), and hangs up otherwise. `dial` adds <Dial>
+ * attributes (the recording ones).
+ */
+export function dequeueTwiml(
+  env: Env,
+  queueName: string,
+  timeLimit: number,
+  dial: Record<string, string> = {},
+): string {
   return response(
     el(
       "Dial",
-      { timeLimit },
+      { timeLimit, action: voiceUrl(env, "/hold/owner"), method: "POST", ...dial },
       el("Queue", { url: voiceUrl(env, "/queue-bridge"), method: "POST" }, text(queueName)),
     ),
   );

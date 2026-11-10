@@ -15,7 +15,13 @@ function enableOidc() {
   e.OIDC_CLIENT_SECRET = "talvuno-secret";
 }
 function disableOidc() {
-  for (const k of ["OIDC_DISCOVERY_URL", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_BUTTON_LABEL"])
+  for (const k of [
+    "SOURCE_URL",
+    "OIDC_DISCOVERY_URL",
+    "OIDC_CLIENT_ID",
+    "OIDC_CLIENT_SECRET",
+    "OIDC_BUTTON_LABEL",
+  ])
     delete e[k];
 }
 
@@ -77,9 +83,31 @@ describe("auth-config", () => {
     expect(await new Session().get("/api/auth-config")).toEqual({
       oidc: true,
       oidcLabel: "Sign in with SSO",
+      sourceUrl: "https://github.com/bts-io/talvuno",
     });
     e.OIDC_BUTTON_LABEL = "Sign in with Authentik";
     expect((await new Session().get("/api/auth-config")).oidcLabel).toBe("Sign in with Authentik");
+  });
+
+  it("uses the default source link when SOURCE_URL is unset", async () => {
+    delete e.SOURCE_URL;
+    expect((await new Session().get("/api/auth-config")).sourceUrl).toBe("https://github.com/bts-io/talvuno");
+  });
+
+  it("returns a custom SOURCE_URL", async () => {
+    e.SOURCE_URL = "https://git.example.org/me/talvuno-fork";
+    expect((await new Session().get("/api/auth-config")).sourceUrl).toBe(
+      "https://git.example.org/me/talvuno-fork",
+    );
+  });
+
+  it("falls back to the default for any scheme other than http and https", async () => {
+    for (const bad of ["javascript:alert(1)", "data:text/html,x", "ftp://example.org/x", "not a url"]) {
+      e.SOURCE_URL = bad;
+      expect((await new Session().get("/api/auth-config")).sourceUrl).toBe(
+        "https://github.com/bts-io/talvuno",
+      );
+    }
   });
 
   it("shows no button, and the SSO routes answer 404, when any setting is missing", async () => {
