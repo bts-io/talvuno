@@ -13,19 +13,17 @@
  */
 import { and, desc, eq, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { RING_SECONDS_DEFAULT } from "../../../contracts/routing";
-import { type BusinessHours, isOpenAt } from "../../../lib/business-hours";
+import type { BusinessHours } from "../../../lib/business-hours";
 import en from "../../../shared/locales/en.json";
 import type { Db } from "../../db";
 import { schema } from "../../db";
 import type { CallRow } from "./call-rules";
+import type { waitDecision } from "./routing-rules";
 import { el, response, text } from "./twiml";
 
+export * from "./routing-rules";
+
 export const DEFAULT_GREETING = en.routing.defaultGreeting;
-/** Seconds a claimed call still waits for its bridge after the ring time, so a late answer is not cut off. */
-export const CLAIM_GRACE_SECONDS = 15;
-/** One ringback cycle: the tone file plays this long, then a pause. */
-export const RINGBACK_TONE_SECONDS = 2;
-export const RINGBACK_PAUSE_SECONDS = 4;
 /** A waiting call older than this is never offered to a device, whatever its row says. */
 export const WAITING_MAX_MS = 3 * 60 * 1000;
 
@@ -65,20 +63,6 @@ export async function isBlocked(db: Db, ownerId: string, address: string): Promi
     .where(and(eq(schema.blockedNumbers.ownerId, ownerId), eq(schema.blockedNumbers.e164, address)))
     .get();
   return Boolean(row);
-}
-
-export type InboundRoute = "reject" | "voicemail" | "queue";
-
-/** The pure routing decision. */
-export function decideInbound(input: {
-  blocked: boolean;
-  dnd: boolean;
-  hours: BusinessHours | null;
-  at: Date;
-}): InboundRoute {
-  if (input.blocked) return "reject";
-  if (input.dnd || !isOpenAt(input.hours, input.at)) return "voicemail";
-  return "queue";
 }
 
 /** A fresh queue name: random, at most 64 characters as Twilio allows. */
@@ -129,22 +113,6 @@ export function dequeueTwiml(env: Env, queueName: string, timeLimit: number): st
       el("Queue", { url: voiceUrl(env, "/queue-bridge"), method: "POST" }, text(queueName)),
     ),
   );
-}
-
-/**
- * What the caller hears next while waiting: ringback, or <Leave/> once the ring time is up, the owner declined
- * or the call is no longer waiting. A claimed call gets a short grace so the bridge can land.
- */
-export function waitDecision(
-  row: Pick<CallRow, "outcome" | "endedAt" | "declinedAt" | "answerCallSid"> | null,
-  queueTime: number,
-  ringSeconds: number,
-): { leave: true } | { leave: false; pause: number } {
-  if (!row || row.outcome || row.endedAt || row.declinedAt) return { leave: true };
-  const limit = ringSeconds + (row.answerCallSid ? CLAIM_GRACE_SECONDS : 0);
-  const left = limit - queueTime;
-  if (left <= 0) return { leave: true };
-  return { leave: false, pause: Math.max(1, Math.min(RINGBACK_PAUSE_SECONDS, left - RINGBACK_TONE_SECONDS)) };
 }
 
 export function waitTwiml(env: Env, decision: ReturnType<typeof waitDecision>): string {

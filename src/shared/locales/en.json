@@ -342,14 +342,13 @@
       "unknownNumberFormat": "Twilio does not recognise the format of that number.",
       "callBlocked": "Twilio blocked this call (fraud risk or regulation for the destination). Check the call log in the Twilio console.",
       "callerIdNotOwned": "Twilio does not accept this caller ID. It must be a number you own or have verified.",
-      "callFailed": "Twilio could not connect the call (error {{code}})."
+      "callFailed": "Twilio could not connect the call (error {{code}}).",
+      "answerNeedsCalling": "Calling is not ready yet. Wait a moment or select Retry."
     }
   },
   "routing": {
     "defaultGreeting": "Sorry, no one can take your call right now. Please leave a message after the beep.",
     "answering": "Connecting you to the caller",
-    "answerGone": "This call was answered on another device or has ended.",
-    "answerNeedsCalling": "Calling is not ready yet. Wait a moment or select Retry.",
     "outcome": {
       "voicemail": "Voicemail",
       "declined": "Declined",

@@ -63,3 +63,6 @@ export const incomingCallSchema = z.object({
   startedAt: z.number().int().nonnegative(),
 });
 export type IncomingCallInfo = z.infer<typeof incomingCallSchema>;
+
+/** The notification tag of a ringing call, so the app can close the notice once the call is answered or ends. */
+export const incomingCallTag = (callId: string) => `call-${callId}`;

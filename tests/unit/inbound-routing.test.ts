@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isMissedCall } from "../../src/contracts/contacts";
 import { businessHoursSchema, isOpenAt, isTimeZone, localTime } from "../../src/lib/business-hours";
 import { incomingCallPush, outcomeOnEnd } from "../../src/worker/lib/voice/call-rules";
-import { decideInbound, waitDecision } from "../../src/worker/lib/voice/routing";
+import { decideInbound, waitDecision } from "../../src/worker/lib/voice/routing-rules";
 
 describe("call outcomes", () => {
   const base = {
@@ -55,7 +55,7 @@ describe("call outcomes", () => {
     ).toMatchObject({
       title: "Incoming call",
       url: "/answer/c1",
-      tag: "call-CA1",
+      tag: "call-c1",
       requireInteraction: true,
       urgency: "high",
       ttl: 25,

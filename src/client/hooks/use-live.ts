@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { announceIncoming } from "../lib/incoming";
 import { announceCallFailure, backoffDelay, keysForEvent, parseLiveFrame } from "../lib/live";
 
 export type LiveState = "connecting" | "open" | "closed";
@@ -43,6 +44,7 @@ export function useLive(enabled = true): LiveState {
         const event = parseLiveFrame(e.data);
         if (!event) return;
         announceCallFailure(event);
+        announceIncoming(event);
         for (const queryKey of keysForEvent(event)) void qc.invalidateQueries({ queryKey });
       };
       socket.onclose = () => {

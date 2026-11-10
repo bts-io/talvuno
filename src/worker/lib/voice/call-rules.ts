@@ -10,6 +10,7 @@ import {
   nextCallStatus,
 } from "../../../contracts";
 import { isMissedCall } from "../../../contracts/contacts";
+import { incomingCallTag } from "../../../contracts/routing";
 import { formatPhone, isE164 } from "../../../lib/phone";
 import type { calls } from "../../db/schema/app";
 
@@ -146,7 +147,7 @@ export const incomingCallPush = (
   title: "Incoming call",
   body: partyLabel(row.party, contactName),
   url: `/answer/${row.id}`,
-  tag: `call-${row.twilioCallSid}`,
+  tag: incomingCallTag(row.id),
   requireInteraction: true,
   urgency: "high",
   ttl: ringSeconds,
