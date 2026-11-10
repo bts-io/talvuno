@@ -28,7 +28,7 @@ import { validationHook } from "../lib/validation";
 import { deleteVoicemail, retentionDays, retryTranscription } from "../lib/voicemail";
 import type { AppEnv } from "../types";
 
-const { voicemails, voicemailSettings, contacts, contactNumbers } = schema;
+const { voicemails, voicemailSettings } = schema;
 
 export const voicemailsRouter = new Hono<AppEnv>();
 
@@ -60,11 +60,12 @@ voicemailsRouter.get("/", zValidator("query", voicemailListQuerySchema, validati
     );
   }
 
+  // Written with table names because a single-table select leaves Drizzle's columns unqualified.
   const name = sql<string | null>`(
-    select ${contacts.displayName} from ${contactNumbers}
-    inner join ${contacts} on ${contacts.id} = ${contactNumbers.contactId}
-    where ${contactNumbers.e164} = ${voicemails.from} and ${contacts.ownerId} = ${voicemails.ownerId}
-    order by ${contacts.sortKey}, ${contacts.id} limit 1)`;
+    select c.display_name from contact_numbers n
+    inner join contacts c on c.id = n.contact_id
+    where n.e164 = "voicemails"."from" and c.owner_id = "voicemails"."owner_id"
+    order by c.sort_key, c.id limit 1)`;
 
   const rows = await db
     .select({ vm: voicemails, contactName: name })

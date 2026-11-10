@@ -58,7 +58,11 @@ const EXT_BY_TYPE: Record<string, string> = {
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
 /** The first line of a transcript, for a notice. */
-export const firstLine = (text: string) => text.trim().split(/\r?\n|(?<=[.!?])\s+/)[0]?.trim() ?? "";
+export const firstLine = (text: string) =>
+  text
+    .trim()
+    .split(/\r?\n|(?<=[.!?])\s+/)[0]
+    ?.trim() ?? "";
 
 async function callerLabel(db: Db, row: VoicemailRow) {
   const contact = isWithheld(row.from) ? null : await findContactByNumber(db, row.ownerId, row.from);
@@ -129,7 +133,8 @@ export async function storeVoicemail(
     }
     const audio = await res.arrayBuffer();
     if (audio.byteLength === 0) throw new Error("empty recording");
-    if (audio.byteLength > MAX_AUDIO_BYTES) throw new Error(`recording too large (${audio.byteLength} bytes)`);
+    if (audio.byteLength > MAX_AUDIO_BYTES)
+      throw new Error(`recording too large (${audio.byteLength} bytes)`);
     const key = voicemailKey(row.ownerId, row.callId, ext);
     await env.RECORDINGS.put(key, audio, { httpMetadata: { contentType } });
     // Guarded on r2_key, so a cron run and the callback storing the same row only finish it once.
@@ -212,7 +217,8 @@ export async function transcribeVoicemail(env: Env, voicemailId: string): Promis
     voicemailId: updated.id,
     callId: updated.callId,
     // The second notice only when there is something to read; it replaces the first (same tag).
-    push: text && !updated.listenedAt ? voicemailPush(updated, await callerLabel(db, updated), text) : undefined,
+    push:
+      text && !updated.listenedAt ? voicemailPush(updated, await callerLabel(db, updated), text) : undefined,
   });
   return "done";
 }
@@ -255,7 +261,11 @@ export async function handleTranscribeBatch(batch: MessageBatch<unknown>, env: E
 }
 
 async function ownerOf(db: Db, id: string) {
-  const row = await db.select({ ownerId: voicemails.ownerId }).from(voicemails).where(eq(voicemails.id, id)).get();
+  const row = await db
+    .select({ ownerId: voicemails.ownerId })
+    .from(voicemails)
+    .where(eq(voicemails.id, id))
+    .get();
   return row?.ownerId ?? null;
 }
 

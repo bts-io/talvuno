@@ -6,6 +6,7 @@ import { AccountSection } from "../components/settings/account-section";
 import { NumbersSection } from "../components/settings/numbers-section";
 import { SafetySection } from "../components/settings/safety-section";
 import { SetupCheckSection } from "../components/settings/setup-check-section";
+import { VoicemailSection } from "../components/settings/voicemail-section";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
 
@@ -18,6 +19,7 @@ function SettingsPage() {
       <NotificationsSettings />
       <NumbersSection />
       <SafetySection />
+      <VoicemailSection />
       <AccountSection />
       <SetupCheckSection />
     </div>
