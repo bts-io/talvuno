@@ -7,6 +7,7 @@ import { lt } from "drizzle-orm";
 import { createDb } from "./db";
 import { webhookEvents } from "./db/schema";
 import { refreshStuckMessages } from "./lib/sms";
+import { sweepLeftoverQueues } from "./lib/voice/queues";
 import { reconcileStuckCalls } from "./lib/voice/reconcile";
 
 export type CronJob = (env: Env, ctx: ExecutionContext) => Promise<void>;
@@ -19,7 +20,12 @@ export async function pruneWebhookEvents(env: Env, _ctx?: ExecutionContext, now 
   await createDb(env.DB).delete(webhookEvents).where(lt(webhookEvents.receivedAt, cutoff));
 }
 
-export const cronJobs: CronJob[] = [pruneWebhookEvents, refreshStuckMessages, reconcileStuckCalls];
+export const cronJobs: CronJob[] = [
+  pruneWebhookEvents,
+  refreshStuckMessages,
+  reconcileStuckCalls,
+  sweepLeftoverQueues,
+];
 
 /** Runs every job, each on its own, and waits for all of them. */
 export async function runCronJobs(

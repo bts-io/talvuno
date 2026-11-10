@@ -33,11 +33,11 @@ export type Query = Record<string, string | number | boolean | undefined | null>
 
 export interface TwilioRest {
   /** Path relative to the account, for example "/IncomingPhoneNumbers.json". */
-  get<T = unknown>(path: string, query?: Query): Promise<T>;
+  get<T = unknown>(path: string, query?: Query, options?: { signal?: AbortSignal }): Promise<T>;
   /** `signal` aborts the request, for example `AbortSignal.timeout(ms)`. */
   post<T = unknown>(path: string, form?: Form, options?: { signal?: AbortSignal }): Promise<T>;
   /** Deletes a resource, for example "/Queues/QU....json". */
-  delete(path: string): Promise<void>;
+  delete(path: string, options?: { signal?: AbortSignal }): Promise<void>;
   /** The account SID requests run under. */
   accountSid: string;
 }
@@ -95,11 +95,11 @@ export function twilioRest(env: Env): TwilioRest {
 
   return {
     accountSid,
-    get<T>(path: string, query?: Query) {
+    get<T>(path: string, query?: Query, options: { signal?: AbortSignal } = {}) {
       const url = new URL(urlFor(path));
       for (const [k, v] of Object.entries(query ?? {}))
         if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
-      return send<T>(url.toString(), { method: "GET" });
+      return send<T>(url.toString(), { method: "GET", signal: options.signal });
     },
     post<T>(path: string, form: Form = {}, options: { signal?: AbortSignal } = {}) {
       return send<T>(urlFor(path), {
@@ -109,8 +109,8 @@ export function twilioRest(env: Env): TwilioRest {
         body: encodeForm(form),
       });
     },
-    async delete(path: string) {
-      await send<void>(urlFor(path), { method: "DELETE" });
+    async delete(path: string, options: { signal?: AbortSignal } = {}) {
+      await send<void>(urlFor(path), { method: "DELETE", signal: options.signal });
     },
   };
 }
