@@ -44,6 +44,8 @@ describe("migration 0000", () => {
         "user",
         "user_preferences",
         "verification",
+        "voicemail_settings",
+        "voicemails",
         "webhook_events",
       ].sort(),
     );
