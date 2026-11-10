@@ -15,6 +15,7 @@ import { z } from "zod";
 import type { Contact } from "../../contracts";
 import type { ContactList, VcardImportResult } from "../../contracts/contacts";
 import { formatPhone } from "../../lib/phone";
+import { BlockButton } from "../components/block-button";
 import { ApiError, api } from "../lib/api";
 
 export const Route = createFileRoute("/_app/contacts")({
@@ -257,6 +258,7 @@ function ContactRow({ contact, onEdit }: { contact: Contact; onEdit: () => void 
               >
                 <ChatCircleText aria-hidden className="size-5" />
               </button>
+              <BlockButton address={n.e164} />
             </span>
           </li>
         ))}

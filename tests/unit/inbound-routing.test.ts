@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { isMissedCall } from "../../src/contracts/contacts";
-import { businessHoursSchema, isOpenAt, isTimeZone, localTime } from "../../src/lib/business-hours";
+import {
+  businessHoursSchema,
+  fromDays,
+  isOpenAt,
+  isTimeZone,
+  localTime,
+  toDays,
+  validDays,
+} from "../../src/lib/business-hours";
 import { incomingCallPush, outcomeOnEnd } from "../../src/worker/lib/voice/call-rules";
 import { decideInbound, waitDecision } from "../../src/worker/lib/voice/routing-rules";
 
@@ -104,6 +112,26 @@ describe("business hours", () => {
     ).toBe(false);
     expect(isTimeZone("Asia/Tokyo")).toBe(true);
     expect(isTimeZone("Mars/Olympus")).toBe(false);
+  });
+});
+
+describe("hours editor week", () => {
+  it("starts weekdays open nine to five when nothing is saved, and keeps only open days on save", () => {
+    const week = toDays(null);
+    expect(week[1]).toEqual({ open: true, from: "09:00", to: "17:00" });
+    expect(week[0]?.open).toBe(false);
+    expect(fromDays("UTC", week).days.map((d) => d.day)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("reads saved hours back and checks every open day closes after it opens", () => {
+    const saved = { timeZone: "Europe/London", days: [{ day: 6, open: "10:00", close: "14:00" }] };
+    const week = toDays(saved);
+    expect(week[6]).toEqual({ open: true, from: "10:00", to: "14:00" });
+    expect(week[1]?.open).toBe(false);
+    expect(fromDays("Europe/London", week)).toEqual(saved);
+    expect(validDays(week)).toBe(true);
+    expect(validDays({ ...week, 6: { open: true, from: "14:00", to: "10:00" } })).toBe(false);
+    expect(validDays({ ...week, 6: { open: false, from: "14:00", to: "10:00" } })).toBe(true);
   });
 });
 

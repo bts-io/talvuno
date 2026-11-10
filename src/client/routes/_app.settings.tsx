@@ -3,9 +3,12 @@ import { useTranslation } from "react-i18next";
 import { ForegroundCallNote } from "../components/foreground-call-note";
 import { NotificationsSettings } from "../components/notifications-settings";
 import { AccountSection } from "../components/settings/account-section";
+import { BlockedSection } from "../components/settings/blocked-section";
+import { HoursSection } from "../components/settings/hours-section";
 import { NumbersSection } from "../components/settings/numbers-section";
 import { SafetySection } from "../components/settings/safety-section";
 import { SetupCheckSection } from "../components/settings/setup-check-section";
+import { VoicemailSection } from "../components/settings/voicemail-section";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
 
@@ -17,6 +20,9 @@ function SettingsPage() {
       <ForegroundCallNote />
       <NotificationsSettings />
       <NumbersSection />
+      <HoursSection />
+      <VoicemailSection />
+      <BlockedSection />
       <SafetySection />
       <AccountSection />
       <SetupCheckSection />

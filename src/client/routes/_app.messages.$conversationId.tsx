@@ -6,7 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ThreadMessage } from "../../contracts/messages";
 import { isE164 } from "../../lib/phone";
+import { BlockButton } from "../components/block-button";
 import { SmsComposer } from "../components/sms-composer";
+
+const blockInHeader =
+  "ms-auto inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-navy-800";
+
 import { queryKeys } from "../lib/live";
 import {
   conversationQuery,
@@ -83,6 +88,7 @@ function ThreadPage() {
             <p className="truncate text-xs text-slate-500">{displayAddress(c.participant)}</p>
           )}
         </div>
+        <BlockButton address={c?.participant} className={blockInHeader} />
       </header>
 
       <div className="flex-1 overflow-y-auto px-3 py-4" aria-live="polite">

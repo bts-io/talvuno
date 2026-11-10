@@ -5,7 +5,7 @@ import {
   RING_CYCLE_SECONDS,
   ringingCall,
   ringSchedule,
-} from "../../src/client/lib/incoming";
+} from "../../src/client/lib/incoming-state";
 import { keysForEvent, parseLiveFrame } from "../../src/client/lib/live";
 
 const ringing = (callId: string, party = "+14155552671") => ({

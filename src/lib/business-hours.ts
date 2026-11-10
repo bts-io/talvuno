@@ -41,6 +41,40 @@ export const businessHoursSchema = z.object({
 export type BusinessHours = z.infer<typeof businessHoursSchema>;
 export type Opening = z.infer<typeof openingSchema>;
 
+/** One day in the Settings editor, which keeps one open period a day. */
+export type DayDraft = { open: boolean; from: string; to: string };
+
+/** The editor's week from saved hours. With nothing saved, weekdays start open nine to five. */
+export function toDays(hours: BusinessHours | null): Record<number, DayDraft> {
+  const out: Record<number, DayDraft> = {};
+  for (const day of WEEKDAYS) {
+    const p = hours?.days.find((d) => d.day === day);
+    out[day] = p
+      ? { open: true, from: p.open, to: p.close }
+      : { open: !hours && day >= 1 && day <= 5, from: "09:00", to: "17:00" };
+  }
+  return out;
+}
+
+/** Saved hours from the editor's week: only the open days. */
+export function fromDays(timeZone: string, days: Record<number, DayDraft>): BusinessHours {
+  return {
+    timeZone,
+    days: WEEKDAYS.filter((d) => days[d]?.open).map((d) => ({
+      day: d,
+      open: days[d]!.from,
+      close: days[d]!.to,
+    })),
+  };
+}
+
+/** Every open day closes after it opens. */
+export const validDays = (days: Record<number, DayDraft>) =>
+  WEEKDAYS.every((d) => {
+    const day = days[d];
+    return !day?.open || openingSchema.safeParse({ day: d, open: day.from, close: day.to }).success;
+  });
+
 const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
 /** The weekday and minute of the day at `at` in `timeZone`. */
