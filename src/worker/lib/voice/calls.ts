@@ -31,6 +31,7 @@ import {
   isMissed,
   isWithheld,
   missedCallPush,
+  outcomeOnEnd,
   planCallUpdate,
 } from "./call-rules";
 
@@ -55,6 +56,8 @@ export async function applyCallEvent(
   if (!row) return null;
   const patch = planCallUpdate(row, event);
   if (!patch) return null;
+  const outcome = outcomeOnEnd(row, patch);
+  if (outcome) patch.outcome = outcome;
   if (!row.contactId) {
     const contact = !isWithheld(row.party) ? await findContactByNumber(db, row.ownerId, row.party) : null;
     if (contact) patch.contactId = contact.id;

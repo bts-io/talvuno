@@ -7,7 +7,16 @@ import { buildPushPayload } from "@block65/webcrypto-web-push";
 import { and, eq } from "drizzle-orm";
 import { createDb, schema } from "../db";
 
-export type PushPayload = { title: string; body: string; url: string; tag?: string };
+export type PushPayload = {
+  title: string;
+  body: string;
+  url: string;
+  tag?: string;
+  requireInteraction?: boolean;
+  /** Delivery options for the push service, never part of the payload the device reads. */
+  urgency?: "normal" | "high";
+  ttl?: number;
+};
 
 export type PushResult = { sent: number; removed: number; failed: number };
 
@@ -56,7 +65,8 @@ const TTL_SECONDS = 24 * 60 * 60;
  * Sends `payload` to every device the owner has subscribed. Subscriptions the push service reports gone
  * (404 or 410) are deleted. Never throws: a failed push must not fail the webhook that caused it.
  */
-export async function sendPushToOwner(env: Env, ownerId: string, payload: PushPayload): Promise<PushResult> {
+export async function sendPushToOwner(env: Env, ownerId: string, input: PushPayload): Promise<PushResult> {
+  const { urgency = "normal", ttl = TTL_SECONDS, ...payload } = input;
   const result: PushResult = { sent: 0, removed: 0, failed: 0 };
   try {
     const vapid = vapidFromEnv(env);
@@ -70,7 +80,7 @@ export async function sendPushToOwner(env: Env, ownerId: string, payload: PushPa
       subs.map(async (sub) => {
         try {
           const request = await buildPushPayload(
-            { data: fitPayload(payload), options: { ttl: TTL_SECONDS, urgency: "normal" } },
+            { data: fitPayload(payload), options: { ttl, urgency } },
             { endpoint: sub.endpoint, expirationTime: null, keys: { auth: sub.auth, p256dh: sub.p256dh } },
             vapid,
           );

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8ed490f7-9951-42ed-a817-bae070827930",
+  "id": "74b8df89-7121-423d-a964-1f4720ace73a",
   "prevId": "2ccfdcfd-da30-43d8-b5d6-0870da807f63",
   "tables": {
     "audit_events": {
@@ -1140,6 +1140,13 @@
           "autoincrement": false,
           "default": 20
         },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "digest_enabled": {
           "name": "digest_enabled",
           "type": "integer",
@@ -1176,13 +1183,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         }
       },

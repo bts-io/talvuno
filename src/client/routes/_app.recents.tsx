@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import type { CallEntry, CallFilter, CallList } from "../../contracts/contacts";
 import { formatPhone, isE164 } from "../../lib/phone";
+import { BlockButton } from "../components/block-button";
 import { VoicemailList } from "../components/voicemail-list";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/live";
@@ -130,11 +131,14 @@ function CallRow({ call }: { call: CallEntry }) {
       ? t("recents.withheld")
       : t("recents.unknownCaller");
   const Icon = call.missed ? PhoneX : call.direction === "inbound" ? PhoneIncoming : PhoneOutgoing;
+  const routed = call.outcome === "voicemail" || call.outcome === "declined" || call.outcome === "blocked";
   const kind = call.missed
     ? "recents.missedCall"
-    : call.direction === "inbound"
-      ? "recents.incoming"
-      : "recents.outgoing";
+    : routed
+      ? `routing.outcome.${call.outcome}`
+      : call.direction === "inbound"
+        ? "recents.incoming"
+        : "recents.outgoing";
   const when = call.startedAt ?? call.endedAt;
   const details = [
     t(kind),
@@ -194,6 +198,7 @@ function CallRow({ call }: { call: CallEntry }) {
           </span>
         </div>
       )}
+      {dialable ? <BlockButton address={call.party} /> : null}
       {call.contactName || !dialable ? null : (
         <button
           type="button"

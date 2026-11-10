@@ -10,8 +10,8 @@ import { ForegroundCallNote } from "./foreground-call-note";
 import { usePhone } from "./phone-provider";
 
 /**
- * Sheet over any screen while a call rings. The ringtone is the Voice SDK's own incoming sound, which plays
- * while the call rings and stops on accept, decline or cancel.
+ * Sheet over any screen while a call waits for an answer. The phone provider plays the ringtone while it
+ * shows. Accept connects this device to the waiting caller, Decline sends the caller to voicemail.
  */
 export function IncomingCallSheet() {
   const { t } = useTranslation();

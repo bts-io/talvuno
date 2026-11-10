@@ -23,6 +23,7 @@ import { missedCallTextApi } from "./routes/missed-call-text";
 import { numbers } from "./routes/numbers";
 import { preferences } from "./routes/preferences";
 import { push } from "./routes/push";
+import { routing } from "./routes/routing";
 import { quickRepliesApi } from "./routes/quick-replies";
 import { status } from "./routes/status";
 import { twilio } from "./routes/twilio";
@@ -81,6 +82,7 @@ app.route("/api/missed-call-text", missedCallTextApi);
 app.route("/api/quick-replies", quickRepliesApi);
 app.route("/api/twilio", twilio);
 app.route("/api/voice", voice);
+app.route("/api/routing", routing);
 app.route("/api/voicemails", voicemailsRouter);
 
 app.notFound((c) => c.json({ error: "not_found", message: "Not found" }, 404));

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  acceptOptions,
   connectOptions,
   createIceServerStore,
   FALLBACK_ICE_SERVERS,
@@ -96,16 +95,12 @@ describe("call options", () => {
     });
   });
 
-  it("answers an incoming call with the ICE servers", () => {
-    expect(acceptOptions(SERVERS)).toEqual({ rtcConfiguration: { iceServers: SERVERS } });
-  });
-
   it("falls back to Twilio's public STUN server when none could be fetched", () => {
     expect(connectOptions({}, null)).toEqual({
       params: {},
       rtcConfiguration: { iceServers: [{ urls: "stun:global.stun.twilio.com:3478" }] },
     });
-    expect(acceptOptions([])).toEqual({ rtcConfiguration: { iceServers: FALLBACK_ICE_SERVERS } });
+    expect(connectOptions({}, [])).toMatchObject({ rtcConfiguration: { iceServers: FALLBACK_ICE_SERVERS } });
   });
 });
 
@@ -117,7 +112,8 @@ describe("phone provider wiring", () => {
       "utf8",
     );
     expect(src).toContain("device.connect(connectOptions(params, iceServers))");
-    expect(src).toContain("call.accept(acceptOptions(iceServers))");
+    // Waiting calls are answered by a call of our own that names them, with the same ICE servers.
+    expect(src).toContain("device.connect(connectOptions(answerParams(callId), iceServers))");
     expect(src).toContain("probeIce((config) => new RTCPeerConnection(config), iceServers)");
     expect(src).not.toMatch(/\.accept\(\)/);
   });

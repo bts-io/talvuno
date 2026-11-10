@@ -2,8 +2,9 @@
 // schema needs no data migration. Timestamps are epoch milliseconds, phone numbers are E.164 strings.
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { CALL_STATUSES, MESSAGE_STATUSES } from "../../../contracts/status";
+import { CALL_OUTCOMES, CALL_STATUSES, MESSAGE_STATUSES } from "../../../contracts/status";
 import { TRANSCRIPT_STATUSES } from "../../../contracts/voicemail";
+import type { BusinessHours } from "../../../lib/business-hours";
 import { user } from "./auth";
 
 const id = () =>
@@ -169,6 +170,18 @@ export const calls = sqliteTable(
     errorCode: integer("error_code"),
     errorMessage: text("error_message"),
     contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    /**
+     * How an inbound call ended for the owner: answered, missed, voicemail, declined or blocked. Null while it
+     * is still live, and for outbound calls.
+     */
+    outcome: text("outcome", { enum: CALL_OUTCOMES }),
+    /** The Twilio queue an inbound caller waits in (random per call, never sent to a browser). */
+    queueName: text("queue_name"),
+    /** The CallSid of the owner's leg that claimed this waiting call. The first claim wins. */
+    answerCallSid: text("answer_call_sid"),
+    answerClaimedAt: integer("answer_claimed_at", { mode: "timestamp_ms" }),
+    /** When the owner declined the waiting call. The caller then goes to voicemail. */
+    declinedAt: integer("declined_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -241,6 +254,50 @@ export const userPreferences = sqliteTable("user_preferences", {
   lastDigestAt: integer("last_digest_at", { mode: "timestamp_ms" }),
   updatedAt: updatedAt(),
 });
+
+/** How calls to one of the owner's numbers are handled: ring time, voicemail greeting, business hours. */
+export const numberRouting = sqliteTable(
+  "number_routing",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    numberId: text("number_id")
+      .notNull()
+      .unique()
+      .references(() => phoneNumbers.id, { onDelete: "cascade" }),
+    /** Seconds a caller waits for an answer before voicemail. */
+    ringSeconds: integer("ring_seconds").notNull().default(25),
+    /** Spoken before the beep. Null means the default greeting. */
+    voicemailGreeting: text("voicemail_greeting"),
+    /** Weekly opening hours with an IANA time zone. Null means always open. */
+    hours: text("hours", { mode: "json" }).$type<BusinessHours>(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("number_routing_owner_idx").on(t.ownerId)],
+);
+
+/** Owner-wide call handling switches. */
+export const routingSettings = sqliteTable("routing_settings", {
+  ownerId: text("owner_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Do not disturb: every call goes straight to voicemail, with no ring and no push. */
+  dnd: integer("dnd", { mode: "boolean" }).notNull().default(false),
+  updatedAt: updatedAt(),
+});
+
+/** Numbers and senders the owner blocked, for calls and texts. Stored as received (E.164 or sender). */
+export const blockedNumbers = sqliteTable(
+  "blocked_numbers",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    /** The caller or sender, as received: E.164 for phone numbers, else the short code or sender ID. */
+    e164: text("e164").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("blocked_numbers_owner_e164_idx").on(t.ownerId, t.e164)],
+);
 
 /** Costs Twilio reports back (message price, call price), for the usage view and spend guards. */
 export const spendEvents = sqliteTable(

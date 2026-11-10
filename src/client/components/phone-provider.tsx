@@ -1,6 +1,11 @@
 /**
- * The phone: one Twilio Voice Device for the signed-in app, registered while the app is open so incoming calls
- * ring here, plus the call screens that sit over every page (incoming sheet, active call).
+ * The phone: one Twilio Voice Device for the signed-in app, plus the call screens that sit over every page
+ * (incoming sheet, active call).
+ *
+ * Incoming calls never ring the device through Twilio. Every caller waits in a queue of its own (see
+ * src/worker/lib/voice/routing.ts): open screens learn about it from a live `incoming` event, closed ones from
+ * a push that opens /answer/<callId>. Answering places a call that names the waiting call, and the Worker checks
+ * it and bridges the two. The first device to answer wins, the others stop ringing on the `ended` event.
  *
  * The SDK is only reached through loadVoiceSdk(), inside effects and handlers, never during SSR.
  */
@@ -16,8 +21,19 @@ import {
   useRef,
   useState,
 } from "react";
+import type { IncomingCallInfo } from "../../contracts/routing";
 import { isTrailingTransportError, probeIce, superviseCall } from "../lib/call-health";
-import { acceptOptions, connectOptions, createIceServerStore } from "../lib/ice-servers";
+import { connectOptions, createIceServerStore } from "../lib/ice-servers";
+import {
+  answerParams,
+  applyIncomingEvent,
+  closeIncomingNotice,
+  declineIncoming,
+  fetchIncoming,
+  onIncoming,
+  ringingCall,
+  startRingtone,
+} from "../lib/incoming";
 import { onCallFailure, queryKeys } from "../lib/live";
 import {
   callFailureKey,
@@ -46,7 +62,8 @@ export type ActiveCall = {
   muted: boolean;
 };
 
-export type IncomingCall = { party: string; name: string | null; numberId: string | null };
+/** A call waiting for an answer. `numberId` is the number it came in on. */
+export type IncomingCall = { callId: string; party: string; name: string | null; numberId: string | null };
 
 export type MicResult = "ok" | "denied" | "unavailable";
 
@@ -67,6 +84,8 @@ type Phone = {
   incoming: IncomingCall | null;
   placeCall: (to: string, callerId: string | null, name?: string | null) => Promise<void>;
   accept: () => Promise<void>;
+  /** Answers the waiting call with this id: the incoming sheet's Accept, and the push notice's route. */
+  answer: (callId: string, info?: { party: string; name: string | null }) => Promise<void>;
   decline: () => void;
   hangUp: () => void;
   toggleMute: () => void;
@@ -103,12 +122,11 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const deviceRef = useRef<VoiceDevice | null>(null);
   const callRef = useRef<VoiceCall | null>(null);
-  const incomingRef = useRef<VoiceCall | null>(null);
   const [deviceState, setDeviceState] = useState<DeviceState>("off");
   const [error, setErrorKey] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | null>(null);
   const [active, setActive] = useState<ActiveCall | null>(null);
-  const [incoming, setIncoming] = useState<IncomingCall | null>(null);
+  const [waiting, setWaiting] = useState<IncomingCallInfo[]>([]);
   const [failed, setFailed] = useState(false);
   const [placing, setPlacing] = useState(false);
   /** Bumped by retry: the device effect runs again with a fresh token. */
@@ -251,26 +269,6 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
             if (!cancelled) setupFailed(err);
           }
         });
-        device.on("incoming", (call: VoiceCall) => {
-          incomingRef.current = call;
-          const party = call.parameters.From ?? "";
-          setIncoming({
-            party,
-            name: call.customParameters.get("contactName") ?? null,
-            numberId: call.customParameters.get("numberId") ?? null,
-          });
-          const clear = () => {
-            if (incomingRef.current === call) {
-              incomingRef.current = null;
-              setIncoming(null);
-            }
-            refreshCalls();
-          };
-          call.on("cancel", clear);
-          call.on("disconnect", clear);
-          call.on("reject", clear);
-          call.on("error", clear);
-        });
         // An expired or refused token never recovers on its own: calling goes off, reported once.
         await registerDevice(
           device,
@@ -290,9 +288,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       device?.destroy();
       deviceRef.current = null;
       callRef.current = null;
-      incomingRef.current = null;
       setActive(null);
-      setIncoming(null);
       setDeviceState("off");
     };
   }, [fail, refreshCalls, setupFailed, attempt, iceStore]);
@@ -338,24 +334,95 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
   // requestMic and probeIce take up to a few seconds: a second tap in that time must not place a second call.
   const placeCall = useMemo(() => singleFlight(placeCallOnce, setPlacing), [placeCallOnce]);
 
+  // The waiting calls: listed once on mount and whenever the tab comes back (events sent while it slept are
+  // lost), then kept current by live events.
+  useEffect(() => {
+    let stopped = false;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      fetchIncoming()
+        .then((items) => !stopped && setWaiting(items))
+        .catch(() => undefined);
+    };
+    load();
+    document.addEventListener("visibilitychange", load);
+    const off = onIncoming((event) => {
+      setWaiting((list) => applyIncomingEvent(list, event));
+      if (event.state === "ended") {
+        void closeIncomingNotice(event.callId);
+        refreshCalls();
+      }
+    });
+    return () => {
+      stopped = true;
+      document.removeEventListener("visibilitychange", load);
+      off();
+    };
+  }, [refreshCalls]);
+
+  const ringing = ringingCall(waiting);
+  const incoming = useMemo<IncomingCall | null>(
+    () =>
+      ringing
+        ? {
+            callId: ringing.callId,
+            party: ringing.party,
+            name: ringing.contactName,
+            numberId: ringing.numberId,
+          }
+        : null,
+    [ringing],
+  );
+
+  // The ringtone plays while the sheet shows. Waiting calls do not ring the device, so the SDK's sound never plays.
+  const ringtoneFor = incoming && !active ? incoming.callId : null;
+  useEffect(() => (ringtoneFor ? startRingtone() : undefined), [ringtoneFor]);
+
+  const answerOnce = useCallback(
+    async (callId: string, info?: { party: string; name: string | null }) => {
+      const device = deviceRef.current;
+      appEndedLatest.current = false;
+      setError(null);
+      if (callRef.current) return;
+      if (!device) {
+        setError("answerNeedsCalling");
+        return;
+      }
+      const mic = await requestMic();
+      if (mic !== "ok") {
+        setError(mic === "denied" ? "micDenied" : "micUnavailable");
+        return;
+      }
+      const iceServers = await iceStore.get();
+      const known = waiting.find((c) => c.callId === callId);
+      const party = info?.party ?? known?.party ?? "";
+      const name = info?.name ?? known?.contactName ?? null;
+      setWaiting((list) => list.filter((c) => c.callId !== callId));
+      void closeIncomingNotice(callId);
+      try {
+        // The Worker answers this with the caller's queue, or a short refusal when another device was first.
+        const call = await device.connect(connectOptions(answerParams(callId), iceServers));
+        track(call, { direction: "inbound", party, name }, "connecting");
+      } catch (err) {
+        fail(err);
+      }
+    },
+    [waiting, track, setError, iceStore, fail],
+  );
+  const answer = useMemo(() => singleFlight(answerOnce, setPlacing), [answerOnce]);
+
   const accept = useCallback(async () => {
-    const call = incomingRef.current;
-    if (!call) return;
-    appEndedLatest.current = false;
-    const mic = await requestMic();
-    if (mic !== "ok") {
-      setError(mic === "denied" ? "micDenied" : "micUnavailable");
-      return;
-    }
-    const iceServers = await iceStore.get();
-    // The caller may have hung up while the servers were fetched.
-    if (incomingRef.current !== call) return;
-    incomingRef.current = null;
-    const info = incoming ?? { party: call.parameters.From ?? "", name: null, numberId: null };
-    setIncoming(null);
-    track(call, { direction: "inbound", party: info.party, name: info.name }, "connecting");
-    call.accept(acceptOptions(iceServers));
-  }, [incoming, track, setError, iceStore]);
+    if (incoming) await answer(incoming.callId, { party: incoming.party, name: incoming.name });
+  }, [incoming, answer]);
+
+  const decline = useCallback(() => {
+    if (!incoming) return;
+    const { callId } = incoming;
+    setWaiting((list) => list.filter((c) => c.callId !== callId));
+    void closeIncomingNotice(callId);
+    // Already answered elsewhere or gone: nothing to undo, the live event tidies up.
+    declineIncoming(callId).catch(() => undefined);
+  }, [incoming]);
 
   const value = useMemo<Phone>(
     () => ({
@@ -373,7 +440,8 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       incoming,
       placeCall,
       accept,
-      decline: () => incomingRef.current?.reject(),
+      answer,
+      decline,
       hangUp: () => callRef.current?.disconnect(),
       toggleMute: () => {
         const call = callRef.current;
@@ -382,7 +450,21 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
       sendDigits: (digits: string) => callRef.current?.sendDigits(digits),
       requestMic,
     }),
-    [deviceState, failed, retry, error, errorCode, placing, active, incoming, placeCall, accept, setError],
+    [
+      deviceState,
+      failed,
+      retry,
+      error,
+      errorCode,
+      placing,
+      active,
+      incoming,
+      placeCall,
+      accept,
+      answer,
+      decline,
+      setError,
+    ],
   );
 
   return (

@@ -40,6 +40,11 @@ export const CALL_STATUSES = [
 export const callStatusSchema = z.enum(CALL_STATUSES);
 export type CallStatus = z.infer<typeof callStatusSchema>;
 
+/** How an inbound call ended for the owner. Null while a call is live, and for outbound calls. */
+export const CALL_OUTCOMES = ["answered", "missed", "voicemail", "declined", "blocked"] as const;
+export const callOutcomeSchema = z.enum(CALL_OUTCOMES);
+export type CallOutcome = z.infer<typeof callOutcomeSchema>;
+
 const MESSAGE_RANK: Record<MessageStatus, number> = {
   accepted: 0,
   scheduled: 0,

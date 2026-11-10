@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { isCountryCode, isE164, toE164 } from "../lib/phone";
-import { callStatusSchema, messageStatusSchema } from "./status";
+import { callOutcomeSchema, callStatusSchema, messageStatusSchema } from "./status";
 
 export * from "./status";
 
@@ -183,6 +183,8 @@ export const callSchema = z.object({
   errorCode: z.number().int().positive().nullable(),
   errorMessage: z.string().nullable(),
   contactId: idSchema.nullable(),
+  /** How an inbound call ended (answered, missed, voicemail, declined, blocked), null while live or outbound. */
+  outcome: callOutcomeSchema.nullable(),
 });
 export type Call = z.infer<typeof callSchema>;
 
@@ -233,6 +235,12 @@ export const livePushSchema = z.object({
       "url must be a same-origin path",
     ),
   tag: z.string().max(100).optional(),
+  /** Keep the notice on screen until the owner acts on it, where the platform supports it. */
+  requireInteraction: z.boolean().optional(),
+  /** Web Push urgency. "high" for a ringing call, so a sleeping phone wakes for it. */
+  urgency: z.enum(["normal", "high"]).optional(),
+  /** Seconds the push service may hold the notice for an offline device. Defaults to a day. */
+  ttl: z.number().int().positive().max(86_400).optional(),
 });
 export type LivePush = z.infer<typeof livePushSchema>;
 
@@ -259,6 +267,19 @@ export const liveEventSchema = z.discriminatedUnion("type", [
     type: z.literal("voicemail"),
     voicemailId: idSchema,
     callId: idSchema.optional(),
+    push: livePushSchema.optional(),
+  }),
+  /**
+   * An inbound call waiting for the owner. "ringing" opens the incoming sheet on every open screen. "ended"
+   * closes it everywhere: answered on a device, declined, gone to voicemail or the caller hung up.
+   */
+  z.object({
+    type: z.literal("incoming"),
+    callId: idSchema,
+    state: z.enum(["ringing", "ended"]),
+    party: z.string().max(64).optional(),
+    contactName: z.string().max(200).nullable().optional(),
+    numberId: idSchema.optional(),
     push: livePushSchema.optional(),
   }),
 ]);

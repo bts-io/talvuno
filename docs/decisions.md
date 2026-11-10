@@ -77,7 +77,32 @@ Every number that enters the system, typed by a person or sent by Twilio, is nor
 (`src/lib/phone.ts`) before it is stored or compared. Calls and messages are only allowed to countries in the
 owner's allowlist, which starts empty, so a fresh install cannot run up international charges.
 
-## 11. Voicemail audio in R2, transcripts through a queue
+## 11. Every inbound call waits in a queue of its own
+
+A closed web app cannot be woken to ring, so the caller has to wait somewhere while the owner opens it. Twilio's
+documented building block for that is `<Enqueue>`: the caller joins a queue with a `waitUrl` that plays ringback,
+and whoever answers takes the caller out with `<Dial><Queue>`. Each call gets its own queue with a random name
+that never leaves the Worker. A device answers by placing a call that names the waiting call row
+(`AnswerCallId`). The Worker checks that the identity is the owner's, that the row is the owner's and still
+waiting, and records the first claim. Only then does it hand Twilio the queue name, so no device can pull a
+caller it was not offered and a second device is told the call was answered elsewhere.
+
+Open apps no longer ring through `<Client>`. Ringing the registered devices first and queueing only after would
+give a closed app nothing to connect to while the open ones ring, and two paths would need two rules for who
+wins. With one path the open app hears the live `incoming` event about as fast as Twilio's own signalling, plays
+its own ringtone, and answers the same way a notification does. Every call also sends a high-urgency push with a
+time to live of the ring time, even when a tab is open, because an open tab on one device says nothing about the
+phone in a pocket.
+
+The `waitUrl` decides when the caller leaves: after the per-number ring time (default 25 seconds, plus a short
+grace once a device has claimed the call), at once after a decline. Leaving the queue plays the voicemail
+greeting and records. Blocked callers are rejected before anything rings, and calls outside business hours or
+with do not disturb on go straight to voicemail with no ring and no push. `calls.outcome` records answered,
+missed, voicemail, declined or blocked, and only "missed" (or no outcome on older rows) counts as a missed call.
+Texts from blocked senders are dropped on arrival, never stored. Queues are deleted when the caller leaves them,
+since Twilio keeps queues until they are removed. Decision 8 still holds for the parts a web app cannot do: the
+app rings only once it is open, and the notification is how a closed app hears about a call.
+## 12. Voicemail audio in R2, transcripts through a queue
 
 This changes decision 6 for one job. Voicemail recordings are copied from Twilio into our own R2 bucket and
 then deleted on Twilio, so the audio lives only where the owner controls it. The voicemail row is written

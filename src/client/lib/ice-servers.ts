@@ -88,8 +88,3 @@ export function rtcConfigurationFor(servers: IceServer[] | null): IceConfigurati
 export function connectOptions(params: Record<string, string>, servers: IceServer[] | null) {
   return { params, rtcConfiguration: rtcConfigurationFor(servers) };
 }
-
-/** Options for `call.accept` on an incoming call. */
-export function acceptOptions(servers: IceServer[] | null) {
-  return { rtcConfiguration: rtcConfigurationFor(servers) };
-}

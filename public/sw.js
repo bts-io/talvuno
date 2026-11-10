@@ -81,16 +81,20 @@ self.addEventListener("push", (event) => {
   }
   const title = typeof data.title === "string" && data.title ? data.title : "Talvuno";
   const tag = typeof data.tag === "string" && data.tag ? data.tag : undefined;
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body: typeof data.body === "string" ? data.body : "",
-      icon: ICON,
-      // The same tag replaces the older notice; renotify makes the replacement alert again.
-      tag,
-      renotify: Boolean(tag),
-      data: { url: typeof data.url === "string" ? data.url : "/" },
-    }),
-  );
+  const options = {
+    body: typeof data.body === "string" ? data.body : "",
+    icon: ICON,
+    // The same tag replaces the older notice; renotify makes the replacement alert again.
+    tag,
+    renotify: Boolean(tag),
+    data: { url: typeof data.url === "string" ? data.url : "/" },
+  };
+  // A ringing call stays on screen until it is tapped or dismissed and vibrates, where the platform allows.
+  if (data.requireInteraction === true) {
+    options.requireInteraction = true;
+    options.vibrate = [400, 200, 400, 200, 400];
+  }
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Only same-origin targets are followed, whatever the payload says.
