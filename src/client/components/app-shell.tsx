@@ -9,12 +9,14 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLive } from "../hooks/use-live";
 import { authClient } from "../lib/auth-client";
 import { clearAllDrafts } from "../lib/drafts";
 import { disablePush } from "../lib/push";
 import { cleanupBeforeSignOut } from "../lib/sign-out-cleanup";
+import { openUrlFromMessage } from "../lib/sw";
 import { FirstRunBanner } from "./first-run-banner";
 import { PhoneProvider } from "./phone-provider";
 
@@ -39,6 +41,17 @@ export function AppShell() {
   const live = useLive();
   const qc = useQueryClient();
   const navigate = useNavigate();
+
+  // A tapped notification asks the open window to route itself, so a call in progress is never reloaded.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.serviceWorker) return;
+    const onMessage = (event: MessageEvent) => {
+      const path = openUrlFromMessage(event.data, window.location.origin);
+      if (path) void navigate({ to: path });
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [navigate]);
 
   const signOut = async () => {
     await cleanupBeforeSignOut({ unsubscribe: disablePush, clearDrafts: clearAllDrafts });

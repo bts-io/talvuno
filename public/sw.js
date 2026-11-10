@@ -115,8 +115,9 @@ self.addEventListener("notificationclick", (event) => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
       if (open) {
+        // Never navigate() an open window: a reload would drop a call in progress. The app shell routes itself.
+        open.postMessage({ type: "open-url", url: target });
         await open.focus();
-        if (open.url !== target && "navigate" in open) await open.navigate(target).catch(() => undefined);
         return;
       }
       await self.clients.openWindow(target);
