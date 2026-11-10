@@ -162,6 +162,17 @@
     "justNow": "Just now"
   },
   "settings": {
+    "jump": {
+      "label": "Jump to",
+      "notifications": "Notifications",
+      "numbers": "Numbers",
+      "hours": "Hours",
+      "voicemail": "Voicemail",
+      "blocked": "Blocked",
+      "safety": "Safety",
+      "account": "Account",
+      "setupCheck": "Setup check"
+    },
     "loading": "Loading",
     "save": "Save",
     "cancel": "Cancel",

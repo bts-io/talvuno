@@ -6,6 +6,7 @@ import { NotificationsSettings } from "../components/notifications-settings";
 import { AccountSection } from "../components/settings/account-section";
 import { BlockedSection } from "../components/settings/blocked-section";
 import { HoursSection } from "../components/settings/hours-section";
+import { JumpList } from "../components/settings/jump-list";
 import { NumbersSection } from "../components/settings/numbers-section";
 import { SafetySection } from "../components/settings/safety-section";
 import { SetupCheckSection } from "../components/settings/setup-check-section";
@@ -18,6 +19,7 @@ function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 md:p-8">
       <h1 className="text-2xl font-semibold tracking-tight">{t("nav.settings")}</h1>
+      <JumpList />
       <DndToggle className="md:hidden" />
       <ForegroundCallNote />
       <NotificationsSettings />

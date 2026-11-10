@@ -108,7 +108,11 @@ export function NotificationsSettings() {
   };
 
   return (
-    <section aria-labelledby="notifications-heading" className="flex flex-col gap-4">
+    <section
+      id="notifications"
+      aria-labelledby="notifications-heading"
+      className="flex scroll-mt-4 flex-col gap-4"
+    >
       <h2 id="notifications-heading" className="text-lg font-semibold">
         {t("push.title")}
       </h2>
